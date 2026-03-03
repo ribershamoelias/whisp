@@ -1,0 +1,462 @@
+version: 1
+project: WHISP
+roadmap: phase2
+phase: F2
+name: Encrypted Echo Path
+
+defaults:
+  estimate_unit: d
+  task_status: planned
+
+owners:
+  backend:
+    role: Backend Engineer
+  flutter:
+    role: Flutter Engineer
+  security:
+    role: Security Engineer
+  devops:
+    role: DevOps Engineer
+  qa:
+    role: QA Engineer
+  techlead:
+    role: Tech Lead
+
+global_constraints:
+  - id: F2-GC-001
+    rule: Server stores ciphertext only; plaintext persistence is forbidden.
+  - id: F2-GC-002
+    rule: Server performs no encryption/decryption/key derivation operations.
+  - id: F2-GC-003
+    rule: Echo scope only; no multi-user/session/group behavior in F2.
+  - id: F2-GC-004
+    rule: Ciphertext and token-like values must be redacted from logs.
+  - id: F2-GC-005
+    rule: All API and schema changes require OpenAPI + migration evidence.
+
+gate_catalog:
+  - id: ciphertext_not_logged
+    description: Runtime and CI checks prove ciphertext is not logged.
+  - id: plaintext_not_persisted
+    description: DB schema and tests prove no plaintext echo storage.
+  - id: client_only_decrypt
+    description: Decryption occurs only on mobile client adapter.
+  - id: relay_transparent_transport
+    description: Relay returns exact ciphertext envelope without transformation.
+  - id: replay_control_active
+    description: Duplicate echo submissions are deterministically handled.
+  - id: payload_limits_enforced
+    description: Oversized payloads are rejected predictably.
+  - id: openapi_validated
+    description: OpenAPI lint has zero errors.
+  - id: relay_coverage_target_met
+    description: Relay module has >=90% line and branch coverage.
+
+evidence_standards:
+  required_artifacts:
+    - CI run URL
+    - test report artifact
+    - coverage report (relay module)
+    - OpenAPI diff and lint output
+    - migration apply report
+    - security checklist excerpt
+
+critical_flow_tests:
+  - id: F2-CFT-1
+    title: Echo ciphertext roundtrip
+    owner: qa
+    estimate: 0.5d
+    dependencies: [F2-T7, F2-T10]
+    deliverables:
+      - integration_test
+    definition_of_done:
+      - integration_test_pass
+      - expected_ciphertext_bytes_match
+    gate_checks:
+      - relay_transparent_transport
+      - client_only_decrypt
+    evidence_required:
+      - ci_run_url
+      - test_report
+  - id: F2-CFT-2
+    title: Tampered ciphertext rejected by client decrypt
+    owner: qa
+    estimate: 0.5d
+    dependencies: [F2-T10]
+    deliverables:
+      - integration_test
+    definition_of_done:
+      - tamper_test_pass
+      - fail_closed_verified
+    gate_checks:
+      - client_only_decrypt
+    evidence_required:
+      - ci_run_url
+      - test_report
+
+security_regression_tasks:
+  - id: F2-SR-1
+    title: Add relay echo log-redaction e2e regression
+    owner: security
+    estimate: 0.5d
+    dependencies: [F2-T7]
+    deliverables:
+      - e2e_test
+    definition_of_done:
+      - e2e_test_pass
+      - no_ciphertext_in_logs
+    gate_checks:
+      - ciphertext_not_logged
+    evidence_required:
+      - ci_run_url
+      - test_report
+  - id: F2-SR-2
+    title: Add malformed envelope rejection regression
+    owner: security
+    estimate: 0.5d
+    dependencies: [F2-T7]
+    deliverables:
+      - integration_test
+    definition_of_done:
+      - malformed_payload_returns_400
+      - no_500_paths
+    gate_checks:
+      - relay_transparent_transport
+    evidence_required:
+      - ci_run_url
+      - test_report
+  - id: F2-SR-3
+    title: Add replay submission regression for message_id reuse
+    owner: security
+    estimate: 0.5d
+    dependencies: [F2-T8]
+    deliverables:
+      - integration_test
+    definition_of_done:
+      - duplicate_submit_deterministic
+      - duplicate_path_documented
+    gate_checks:
+      - replay_control_active
+    evidence_required:
+      - ci_run_url
+      - test_report
+
+policy_test_matrix_tasks:
+  - id: F2-PTM-1
+    title: Validate policy guard on mutating relay echo endpoint
+    owner: qa
+    estimate: 0.5d
+    dependencies: [F2-T7]
+    deliverables:
+      - e2e_test
+    definition_of_done:
+      - unauthorized_rejected
+      - missing_policy_metadata_not_allowed
+    gate_checks:
+      - relay_transparent_transport
+    evidence_required:
+      - ci_run_url
+      - test_report
+
+ci_gate_tasks:
+  - id: F2-CI-1
+    title: Add relay coverage threshold gate (>=90 line/branch)
+    owner: devops
+    estimate: 0.5d
+    dependencies: [F2-T7]
+    deliverables:
+      - ci_config
+    definition_of_done:
+      - threshold_enforced
+      - ci_fail_on_threshold_breach
+    gate_checks:
+      - relay_coverage_target_met
+    evidence_required:
+      - ci_run_url
+      - coverage_report
+  - id: F2-CI-2
+    title: Add plaintext persistence scan gate for echo schema
+    owner: devops
+    estimate: 0.5d
+    dependencies: [F2-T2]
+    deliverables:
+      - ci_script
+    definition_of_done:
+      - gate_blocks_plaintext_fields
+      - script_documented
+    gate_checks:
+      - plaintext_not_persisted
+    evidence_required:
+      - ci_run_url
+      - script_output
+
+epics:
+  - id: F2-E1
+    name: Echo API and Persistence
+    owner: backend
+    tasks:
+      - id: F2-T1
+        title: Define OpenAPI contract for relay echo submit and fetch
+        owner: backend
+        estimate: 0.5d
+        dependencies: []
+        deliverables:
+          - openapi_update
+          - contract_examples
+        definition_of_done:
+          - openapi_validated
+          - contract_examples_reviewed
+          - lint_clean
+        gate_checks:
+          - openapi_validated
+        evidence_required:
+          - openapi_diff
+          - lint_output
+      - id: F2-T2
+        title: Add versioned migration for echo_messages ciphertext storage
+        owner: backend
+        estimate: 0.5d
+        dependencies: [F2-T1]
+        deliverables:
+          - migration
+          - schema_update
+        definition_of_done:
+          - migration_apply_pass
+          - migration_rollback_pass
+          - schema_sql_updated
+        gate_checks:
+          - plaintext_not_persisted
+        evidence_required:
+          - migration_report
+          - ci_run_url
+      - id: F2-T3
+        title: Enforce DB constraints for ciphertext-only envelope fields
+        owner: backend
+        estimate: 0.5d
+        dependencies: [F2-T2]
+        deliverables:
+          - db_constraints
+          - unit_tests
+        definition_of_done:
+          - required_fields_not_null
+          - plaintext_columns_absent
+          - unit_tests_pass
+        gate_checks:
+          - plaintext_not_persisted
+        evidence_required:
+          - schema_diff
+          - test_report
+      - id: F2-T4
+        title: Add unique replay-control index on (wid, message_id)
+        owner: backend
+        estimate: 0.5d
+        dependencies: [F2-T2]
+        deliverables:
+          - migration
+          - integration_tests
+        definition_of_done:
+          - unique_index_created
+          - duplicate_insert_handled
+          - integration_test_pass
+        gate_checks:
+          - replay_control_active
+        evidence_required:
+          - migration_report
+          - test_report
+
+  - id: F2-E2
+    name: Relay Echo Service
+    owner: backend
+    tasks:
+      - id: F2-T5
+        title: Implement relay echo DTO validation for ciphertext envelope
+        owner: backend
+        estimate: 0.5d
+        dependencies: [F2-T1]
+        deliverables:
+          - code
+          - unit_tests
+        definition_of_done:
+          - dto_rejects_malformed_fields
+          - error_mapping_deterministic
+          - unit_tests_pass
+        gate_checks:
+          - relay_transparent_transport
+        evidence_required:
+          - test_report
+      - id: F2-T6
+        title: Implement payload size limit enforcement for echo endpoint
+        owner: backend
+        estimate: 0.5d
+        dependencies: [F2-T5]
+        deliverables:
+          - code
+          - integration_tests
+        definition_of_done:
+          - oversize_requests_rejected
+          - status_code_deterministic
+          - integration_test_pass
+        gate_checks:
+          - payload_limits_enforced
+        evidence_required:
+          - test_report
+      - id: F2-T7
+        title: Implement relay echo submit and fetch service/controller methods
+        owner: backend
+        estimate: 1d
+        dependencies: [F2-T3, F2-T5]
+        deliverables:
+          - code
+          - unit_tests
+          - integration_tests
+        definition_of_done:
+          - ciphertext_roundtrip_exact
+          - no_server_crypto_calls
+          - tests_pass
+        gate_checks:
+          - relay_transparent_transport
+          - client_only_decrypt
+        evidence_required:
+          - ci_run_url
+          - test_report
+      - id: F2-T8
+        title: Implement deterministic duplicate message_id handling strategy
+        owner: backend
+        estimate: 0.5d
+        dependencies: [F2-T4, F2-T7]
+        deliverables:
+          - code
+          - integration_tests
+          - docs
+        definition_of_done:
+          - duplicate_behavior_documented
+          - duplicate_requests_consistent
+          - integration_test_pass
+        gate_checks:
+          - replay_control_active
+        evidence_required:
+          - test_report
+          - docs_link
+
+  - id: F2-E3
+    name: Mobile Echo Crypto Adapter
+    owner: flutter
+    tasks:
+      - id: F2-T9
+        title: Implement client crypto interface adapter for echo encrypt/decrypt
+        owner: flutter
+        estimate: 1d
+        dependencies: []
+        deliverables:
+          - code
+          - unit_tests
+        definition_of_done:
+          - encrypt_api_stable
+          - decrypt_api_stable
+          - tests_pass
+        gate_checks:
+          - client_only_decrypt
+        evidence_required:
+          - test_report
+      - id: F2-T10
+        title: Wire messaging remote data source to use echo crypto adapter boundary
+        owner: flutter
+        estimate: 1d
+        dependencies: [F2-T7, F2-T9]
+        deliverables:
+          - code
+          - integration_tests
+        definition_of_done:
+          - plaintext_never_sent_to_api_layer
+          - echo_roundtrip_success
+          - integration_tests_pass
+        gate_checks:
+          - client_only_decrypt
+          - relay_transparent_transport
+        evidence_required:
+          - test_report
+      - id: F2-T11
+        title: Add tamper-detection tests for modified ciphertext/nonce/aad
+        owner: flutter
+        estimate: 0.5d
+        dependencies: [F2-T9]
+        deliverables:
+          - unit_tests
+        definition_of_done:
+          - tamper_cases_fail_closed
+          - no_partial_decrypt
+          - tests_pass
+        gate_checks:
+          - client_only_decrypt
+        evidence_required:
+          - test_report
+
+  - id: F2-E4
+    name: Security and CI Gates
+    owner: security
+    tasks:
+      - id: F2-T12
+        title: Add no-ciphertext-logging regression for relay echo endpoints
+        owner: security
+        estimate: 0.5d
+        dependencies: [F2-T7]
+        deliverables:
+          - e2e_test
+          - ci_update
+        definition_of_done:
+          - e2e_redaction_test_pass
+          - ci_enforces_redaction_regression
+        gate_checks:
+          - ciphertext_not_logged
+        evidence_required:
+          - ci_run_url
+          - test_report
+      - id: F2-T13
+        title: Add plaintext DB assertion tests for echo persistence path
+        owner: security
+        estimate: 0.5d
+        dependencies: [F2-T3]
+        deliverables:
+          - integration_tests
+        definition_of_done:
+          - plaintext_insert_not_possible
+          - persisted_fields_match_envelope_contract
+          - tests_pass
+        gate_checks:
+          - plaintext_not_persisted
+        evidence_required:
+          - test_report
+      - id: F2-T14
+        title: Create F2 manual attack checklist and map to CI evidence
+        owner: security
+        estimate: 0.5d
+        dependencies: [F2-T8, F2-T11, F2-T12, F2-T13]
+        deliverables:
+          - docs
+        definition_of_done:
+          - checklist_completed
+          - every_item_has_evidence_link
+          - reviewer_signoff_recorded
+        gate_checks:
+          - ciphertext_not_logged
+          - plaintext_not_persisted
+          - replay_control_active
+        evidence_required:
+          - checklist_doc
+          - ci_run_url
+
+phase_gate:
+  required_checks:
+    - ciphertext_not_logged
+    - plaintext_not_persisted
+    - client_only_decrypt
+    - relay_transparent_transport
+    - replay_control_active
+    - payload_limits_enforced
+    - relay_coverage_target_met
+    - openapi_validated
+  stop_conditions:
+    - Plaintext appears in any relay table, API contract, or test fixture accepted path.
+    - Any server-side encrypt/decrypt helper introduced in relay module.
+    - Echo endpoint behavior overlaps with F3 session semantics.
+    - Security regression tests red on main branch.
