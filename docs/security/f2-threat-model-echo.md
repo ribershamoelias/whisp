@@ -1,8 +1,10 @@
 # Threat Model v2 (F2 Encrypted Echo Path)
 
-Version: `v2-f2-echo`  
+Version: `v2-f2-echo-final`  
 Phase: `F2`  
 Scope: Relay Echo ciphertext transport (`/relay/echo` only)
+Review Date: `2026-03-04`
+Status: `Finalized for F2 Gate`
 
 ## Hard Constraints (Non-Negotiable)
 - Replay is blocked for echo submit.
@@ -138,6 +140,7 @@ Evidence Required:
 - Metadata still includes minimal transport timing and sender identity.
 - No anti-traffic-analysis guarantees in F2.
 - Echo flow cannot prove multi-device key-consistency yet.
+- Full volumetric load/chaos testing deferred to later hardening phases.
 
 ## F2 Security Gate Mapping
 - `ciphertext_never_logged` -> T4 mitigations + CI redaction tests.
