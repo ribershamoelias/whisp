@@ -2,6 +2,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { JwtAccessService } from '../../common/auth/jwt-access.service';
 import { AuthService } from './auth.service';
 import { InMemoryRefreshTokenStore } from './refresh-token.store';
+import { hashRefreshToken } from './refresh-token-crypto';
 
 describe('AuthService', () => {
   let store: InMemoryRefreshTokenStore;
@@ -72,5 +73,88 @@ describe('AuthService', () => {
     await expect(
       service.refresh('wid-1', 'device-a', first.refresh_token_value)
     ).resolves.toMatchObject({ access_token: expect.any(String) });
+  });
+
+  it('rejects unknown refresh token', async () => {
+    await service.login('wid-1', 'device-a');
+    await expect(service.refresh('wid-1', 'device-a', 'not-known')).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejects expired refresh token and revokes it', async () => {
+    const expiredToken = 'expired-token-value';
+    await store.withTransaction(async (tx) => {
+      tx.insert({
+        wid: 'wid-exp',
+        device_id: 'device-exp',
+        family_id: 'f-exp',
+        jti: 'jti-exp-1',
+        parent_jti: null,
+        refresh_token_hash: hashRefreshToken(expiredToken),
+        revoked: false,
+        revoked_reason: null,
+        expires_at: new Date(Date.now() - 60_000),
+        created_at: new Date(Date.now() - 120_000)
+      });
+    });
+
+    await expect(service.refresh('wid-exp', 'device-exp', expiredToken)).rejects.toThrow(
+      UnauthorizedException
+    );
+
+    const snapshot = store.snapshotByWidDevice('wid-exp', 'device-exp');
+    expect(snapshot[0].revoked).toBe(true);
+    expect(snapshot[0].revoked_reason).toBe('expired');
+  });
+
+  it('rejects token when family already compromised before reuse', async () => {
+    const validToken = 'family-precompromised-token';
+
+    await store.withTransaction(async (tx) => {
+      tx.insert({
+        wid: 'wid-fam',
+        device_id: 'device-fam',
+        family_id: 'fam-1',
+        jti: 'jti-fam-active',
+        parent_jti: null,
+        refresh_token_hash: hashRefreshToken(validToken),
+        revoked: false,
+        revoked_reason: null,
+        expires_at: new Date(Date.now() + 60_000),
+        created_at: new Date()
+      });
+      tx.insert({
+        wid: 'wid-fam',
+        device_id: 'device-fam',
+        family_id: 'fam-1',
+        jti: 'jti-fam-compromised',
+        parent_jti: 'jti-fam-active',
+        refresh_token_hash: hashRefreshToken('unused-token'),
+        revoked: true,
+        revoked_reason: 'family_compromised',
+        expires_at: new Date(Date.now() + 60_000),
+        created_at: new Date()
+      });
+    });
+
+    await expect(service.refresh('wid-fam', 'device-fam', validToken)).rejects.toThrow(
+      UnauthorizedException
+    );
+  });
+
+  it('logout is no-op success and revokeDeviceSessions invalidates device tokens', async () => {
+    const login = await service.login('wid-r', 'device-r');
+    await expect(service.logout()).resolves.toBeUndefined();
+    await expect(service.revokeDeviceSessions('wid-r', 'device-r')).resolves.toBeUndefined();
+    await expect(service.refresh('wid-r', 'device-r', login.refresh_token_value)).rejects.toThrow(
+      UnauthorizedException
+    );
+  });
+
+  it('supports default device path for login and refresh', async () => {
+    const login = await service.login('wid-default');
+    await expect(service.refresh('wid-default', undefined, login.refresh_token_value)).resolves.toMatchObject({
+      access_token: expect.any(String),
+      refresh_token_value: expect.any(String)
+    });
   });
 });

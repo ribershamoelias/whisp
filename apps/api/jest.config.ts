@@ -8,6 +8,20 @@ const config: Config = {
     '^.+\\.(t|j)s$': 'ts-jest'
   },
   collectCoverageFrom: ['src/**/*.ts'],
+  coverageThreshold: {
+    global: {
+      lines: 0,
+      branches: 0
+    },
+    './src/modules/auth/**/*.ts': {
+      lines: 90,
+      branches: 90
+    },
+    './src/modules/identity/**/*.ts': {
+      lines: 90,
+      branches: 90
+    }
+  },
   coverageDirectory: 'coverage',
   testEnvironment: 'node'
 };

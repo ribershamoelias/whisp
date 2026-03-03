@@ -21,6 +21,7 @@ jobs:
           node-version: '20'
       - run: npm install
       - run: ../../scripts/ci/check_no_console.sh
+      - run: ../../scripts/ci/check_no_todo.sh
       - run: npm run lint
       - run: npm run test:ci
       - run: npm run build

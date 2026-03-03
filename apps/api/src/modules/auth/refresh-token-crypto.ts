@@ -20,10 +20,5 @@ export function verifyRefreshTokenConstantTime(
   const salt = Buffer.from(parts[1], 'base64url');
   const expected = Buffer.from(parts[2], 'base64url');
   const actual = scryptSync(refreshTokenValue, salt, expected.length);
-
-  if (actual.length !== expected.length) {
-    return false;
-  }
-
   return timingSafeEqual(actual, expected);
 }
