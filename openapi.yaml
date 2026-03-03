@@ -397,6 +397,58 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RelayMessageOut'
+  /relay/echo:
+    post:
+      tags: [relay]
+      summary: Store ciphertext echo payload for self-roundtrip validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelayEchoIn'
+      responses:
+        '201':
+          description: Echo stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelayEchoOut'
+        '400':
+          description: Invalid payload
+        '409':
+          description: Duplicate message_id for wid/device_id
+        '413':
+          description: Ciphertext exceeds 65536 bytes
+  /relay/echo/{message_id}:
+    get:
+      tags: [relay]
+      summary: Read previously stored echo payload
+      parameters:
+        - in: path
+          name: message_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: wid
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: device_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Echo payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelayEchoOut'
+        '400':
+          description: Not found or invalid query
 
 components:
   securitySchemes:
@@ -476,6 +528,35 @@ components:
           type: string
         ciphertext_blob:
           type: string
+        created_at:
+          type: string
+          format: date-time
+    RelayEchoIn:
+      type: object
+      required: [wid, device_id, message_id, ciphertext]
+      properties:
+        wid:
+          type: string
+        device_id:
+          type: string
+        message_id:
+          type: string
+        ciphertext:
+          type: string
+          description: Base64-encoded ciphertext envelope bytes
+    RelayEchoOut:
+      type: object
+      required: [wid, device_id, message_id, ciphertext, created_at]
+      properties:
+        wid:
+          type: string
+        device_id:
+          type: string
+        message_id:
+          type: string
+        ciphertext:
+          type: string
+          description: Base64-encoded ciphertext envelope bytes
         created_at:
           type: string
           format: date-time

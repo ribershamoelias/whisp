@@ -18,6 +18,7 @@ export class SafeLogger {
     'authorization',
     'access_token',
     'refresh_token_value',
+    'ciphertext',
     'ciphertext_blob',
     'private_key',
     'identity_key',

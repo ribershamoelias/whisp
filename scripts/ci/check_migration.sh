@@ -17,9 +17,9 @@ done
 
 docker compose exec -T postgres psql -U whisp -d whisp -v ON_ERROR_STOP=1 -f /schema.sql >/tmp/migration_apply.log
 
-required_count=$(docker compose exec -T postgres psql -U whisp -d whisp -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','devices','spaces','memberships','messages','requests','blocks','refresh_tokens');")
-if [[ "${required_count}" != "8" ]]; then
-  echo "Migration verification failed: expected 8 required tables, got ${required_count}"
+required_count=$(docker compose exec -T postgres psql -U whisp -d whisp -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','devices','spaces','memberships','messages','echo_messages','requests','blocks','refresh_tokens');")
+if [[ "${required_count}" != "9" ]]; then
+  echo "Migration verification failed: expected 9 required tables, got ${required_count}"
   exit 1
 fi
 
@@ -46,6 +46,38 @@ docker compose exec -T postgres psql -U whisp -d whisp -v ON_ERROR_STOP=1 -c "IN
 exact_match_count=$(docker compose exec -T postgres psql -U whisp -d whisp -t -A -c "SELECT count(*) FROM refresh_tokens WHERE refresh_token_hash = 'plain-refresh-token';")
 if [[ "${exact_match_count}" != "0" ]]; then
   echo "Plaintext refresh token found in refresh_token_hash column"
+  exit 1
+fi
+
+plaintext_column_count=$(docker compose exec -T postgres psql -U whisp -d whisp -t -A -c "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='echo_messages' AND column_name ILIKE '%plaintext%';")
+if [[ "${plaintext_column_count}" != "0" ]]; then
+  echo "Echo schema guard failed: plaintext column detected in echo_messages"
+  exit 1
+fi
+
+docker compose exec -T postgres psql -U whisp -d whisp -v ON_ERROR_STOP=1 -c "INSERT INTO echo_messages(wid, device_id, message_id, ciphertext_blob) VALUES ('00000000-0000-0000-0000-000000000001','device-A','msg-1', decode('AAEC', 'base64'));" >/tmp/echo_insert.log
+
+plaintext_match_count=$(docker compose exec -T postgres psql -U whisp -d whisp -t -A -c "SELECT count(*) FROM echo_messages WHERE encode(ciphertext_blob, 'escape') = 'this-is-plain-text-not-base64';")
+if [[ "${plaintext_match_count}" != "0" ]]; then
+  echo "Echo persistence guard failed: plaintext marker found in ciphertext_blob storage"
+  exit 1
+fi
+
+set +e
+docker compose exec -T postgres psql -U whisp -d whisp -v ON_ERROR_STOP=1 -c "INSERT INTO echo_messages(wid, device_id, message_id, ciphertext_blob) VALUES ('00000000-0000-0000-0000-000000000001','device-A','msg-1', decode('AAEC', 'base64'));" >/tmp/echo_duplicate_insert.log 2>&1
+echo_duplicate_status=$?
+set -e
+if [[ ${echo_duplicate_status} -eq 0 ]]; then
+  echo "Echo replay guard failed: duplicate (wid, device_id, message_id) insert was accepted"
+  exit 1
+fi
+
+set +e
+docker compose exec -T postgres psql -U whisp -d whisp -v ON_ERROR_STOP=1 -c "INSERT INTO echo_messages(wid, device_id, message_id, ciphertext_blob) VALUES ('00000000-0000-0000-0000-000000000001','device-A','msg-oversize', decode(repeat('AA', 65537), 'hex'));" >/tmp/echo_oversize_insert.log 2>&1
+echo_oversize_status=$?
+set -e
+if [[ ${echo_oversize_status} -eq 0 ]]; then
+  echo "Echo payload limit guard failed: oversized payload was accepted"
   exit 1
 fi
 

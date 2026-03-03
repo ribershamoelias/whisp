@@ -45,6 +45,16 @@ CREATE TABLE messages (
 
 CREATE INDEX idx_messages_space_created_at ON messages(space_id, created_at DESC);
 
+CREATE TABLE echo_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  wid UUID NOT NULL REFERENCES users(wid) ON DELETE CASCADE,
+  device_id TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  ciphertext_blob BYTEA NOT NULL CHECK (octet_length(ciphertext_blob) <= 65536),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (wid, device_id, message_id)
+);
+
 CREATE TABLE requests (
   request_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   from_wid UUID NOT NULL REFERENCES users(wid) ON DELETE CASCADE,
