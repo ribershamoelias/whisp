@@ -3,17 +3,20 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
-  InternalServerErrorException
+  InternalServerErrorException,
+  UnauthorizedException
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PermissionsService } from '../../modules/permissions/permissions.service';
 import { REQUIRES_POLICY_KEY, RequiresPolicyMetadata } from './requires-policy.decorator';
+import { JwtAccessService } from '../auth/jwt-access.service';
 
 @Injectable()
 export class PolicyGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly permissionsService: PermissionsService
+    private readonly permissionsService: PermissionsService,
+    private readonly jwtAccessService: JwtAccessService
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -80,6 +83,16 @@ export class PolicyGuard implements CanActivate {
     },
     metadata: RequiresPolicyMetadata
   ): string | undefined {
+    const authorizationHeader = request.headers?.authorization;
+    if (authorizationHeader) {
+      const token = this.jwtAccessService.extractBearerToken(authorizationHeader);
+      const verified = this.jwtAccessService.verifyAccessToken(token);
+      if (!verified.sub) {
+        throw new UnauthorizedException('Access token missing subject');
+      }
+      return verified.sub;
+    }
+
     return this.resolveField(request, metadata.fields?.actor, ['x-wid', 'wid', 'from_wid', 'sender_wid']);
   }
 

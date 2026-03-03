@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { JwtAccessService } from '../../common/auth/jwt-access.service';
 
 export interface AuthTokens {
   access_token: string;
@@ -7,17 +8,19 @@ export interface AuthTokens {
 
 @Injectable()
 export class AuthService {
-  async login(_wid: string): Promise<AuthTokens> {
+  constructor(private readonly jwtAccessService: JwtAccessService) {}
+
+  async login(wid: string): Promise<AuthTokens> {
     return {
-      access_token: 'scaffold-access-token',
-      refresh_token_value: 'scaffold-refresh-token'
+      access_token: this.jwtAccessService.issueAccessToken(wid),
+      refresh_token_value: this.jwtAccessService.issueOpaqueRefreshToken()
     };
   }
 
-  async refresh(_refreshTokenValue: string): Promise<AuthTokens> {
+  async refresh(wid: string, _refreshTokenValue: string): Promise<AuthTokens> {
     return {
-      access_token: 'rotated-access-token',
-      refresh_token_value: 'rotated-refresh-token'
+      access_token: this.jwtAccessService.issueAccessToken(wid),
+      refresh_token_value: this.jwtAccessService.issueOpaqueRefreshToken()
     };
   }
 

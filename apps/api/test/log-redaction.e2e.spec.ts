@@ -34,15 +34,20 @@ describe('Log redaction (e2e)', () => {
   });
 
   it('redacts auth header and token fields', async () => {
+    const loginResponse = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ wid: 'wid-1' })
+      .expect(201);
+
     await request(app.getHttpServer())
       .post('/auth/refresh')
-      .set('authorization', 'Bearer redaction-test-token')
+      .set('authorization', `Bearer ${loginResponse.body.access_token as string}`)
       .send({ wid: 'wid-1', refresh_token_value: 'refresh-redaction-value' })
       .expect(201);
 
     const logBody = sink.lines.join('\n');
     expect(logBody).toContain('[REDACTED]');
-    expect(logBody).not.toContain('redaction-test-token');
+    expect(logBody).not.toContain(loginResponse.body.access_token as string);
     expect(logBody).not.toContain('refresh-redaction-value');
   });
 });

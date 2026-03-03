@@ -5,6 +5,7 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { PolicyGuard } from '../src/common/authz/policy.guard';
 import { PermissionsService } from '../src/modules/permissions/permissions.service';
+import { JwtAccessService } from '../src/common/auth/jwt-access.service';
 
 @Controller()
 class MissingPolicyController {
@@ -28,6 +29,13 @@ describe('PolicyGuard (e2e fail-closed)', () => {
         {
           provide: PermissionsService,
           useValue: { authorize: async () => ({ allowed: true, deny_reason: 'none' }) }
+        },
+        {
+          provide: JwtAccessService,
+          useValue: {
+            extractBearerToken: (_header: string) => '',
+            verifyAccessToken: () => ({ sub: 'wid-1' })
+          }
         }
       ]
     }).compile();
