@@ -1,0 +1,3 @@
+class PermissionsPage {
+  const PermissionsPage();
+}

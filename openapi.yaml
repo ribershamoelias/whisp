@@ -1,0 +1,434 @@
+openapi: 3.1.0
+info:
+  title: WHISP Phase 1 API
+  version: 1.0.0
+servers:
+  - url: https://api.whisp.local
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Issue access and refresh tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wid]
+              properties:
+                wid:
+                  type: string
+      responses:
+        '200':
+          description: Auth tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Rotate refresh token
+      operationId: authRefresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wid, refresh_token]
+              properties:
+                wid:
+                  type: string
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Rotated tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke session chain
+      operationId: authLogout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wid]
+              properties:
+                wid:
+                  type: string
+      responses:
+        '204':
+          description: Logged out
+
+  /identity/register:
+    post:
+      tags: [identity]
+      summary: Register core identity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wid, public_key]
+              properties:
+                wid:
+                  type: string
+                public_key:
+                  type: string
+      responses:
+        '201':
+          description: Identity registered
+  /identity/devices:
+    post:
+      tags: [identity]
+      summary: Register a device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegistration'
+      responses:
+        '201':
+          description: Device registered
+  /identity/key-bundles/{wid}:
+    get:
+      tags: [identity]
+      summary: Get public key bundle
+      parameters:
+        - in: path
+          name: wid
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public keys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicKeyBundle'
+  /identity/blocks/{target_wid}:
+    post:
+      tags: [identity]
+      summary: Add global block
+      parameters:
+        - in: path
+          name: target_wid
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Blocked
+    delete:
+      tags: [identity]
+      summary: Remove global block
+      parameters:
+        - in: path
+          name: target_wid
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Unblocked
+
+  /spaces:
+    post:
+      tags: [spaces]
+      summary: Create space
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, public_flag]
+              properties:
+                type:
+                  type: string
+                  enum: [private, school, public]
+                public_flag:
+                  type: boolean
+      responses:
+        '201':
+          description: Created
+  /spaces/{space_id}/join:
+    post:
+      tags: [spaces]
+      summary: Join space
+      parameters:
+        - in: path
+          name: space_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Joined
+  /spaces/{space_id}/leave:
+    post:
+      tags: [spaces]
+      summary: Leave space
+      parameters:
+        - in: path
+          name: space_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Left
+  /spaces/{space_id}/roles:
+    post:
+      tags: [spaces]
+      summary: Assign role in space
+      parameters:
+        - in: path
+          name: space_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wid, role]
+              properties:
+                wid:
+                  type: string
+                role:
+                  type: string
+                  enum: [member, moderator, admin]
+      responses:
+        '204':
+          description: Role assigned
+  /spaces/requests:
+    post:
+      tags: [spaces]
+      summary: Create contact request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to_wid]
+              properties:
+                to_wid:
+                  type: string
+      responses:
+        '201':
+          description: Request created
+  /spaces/requests/{request_id}/accept:
+    post:
+      tags: [spaces]
+      summary: Accept contact request and create private space
+      parameters:
+        - in: path
+          name: request_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [space_id]
+                properties:
+                  space_id:
+                    type: string
+  /spaces/requests/{request_id}/reject:
+    post:
+      tags: [spaces]
+      summary: Reject contact request
+      parameters:
+        - in: path
+          name: request_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Rejected
+
+  /permissions/dm-eligibility:
+    post:
+      tags: [permissions]
+      summary: Check DM eligibility
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_wid, to_wid]
+              properties:
+                from_wid:
+                  type: string
+                to_wid:
+                  type: string
+      responses:
+        '200':
+          description: Decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDecision'
+  /permissions/space-action:
+    post:
+      tags: [permissions]
+      summary: Check role-based space action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wid, space_id, action]
+              properties:
+                wid:
+                  type: string
+                space_id:
+                  type: string
+                action:
+                  type: string
+      responses:
+        '200':
+          description: Decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionDecision'
+
+  /relay/messages:
+    post:
+      tags: [relay]
+      summary: Store encrypted message payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelayMessageIn'
+      responses:
+        '202':
+          description: Accepted
+    get:
+      tags: [relay]
+      summary: Pull encrypted messages by space
+      parameters:
+        - in: query
+          name: space_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RelayMessageOut'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    AuthTokens:
+      type: object
+      required: [access_token, refresh_token]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+    DeviceRegistration:
+      type: object
+      required: [wid, device_id, device_public_key]
+      properties:
+        wid:
+          type: string
+        device_id:
+          type: string
+        device_public_key:
+          type: string
+    PublicKeyBundle:
+      type: object
+      required: [wid, public_key, devices]
+      properties:
+        wid:
+          type: string
+        public_key:
+          type: string
+        devices:
+          type: array
+          items:
+            type: object
+            required: [device_id, device_public_key]
+            properties:
+              device_id:
+                type: string
+              device_public_key:
+                type: string
+    PermissionDecision:
+      type: object
+      required: [allowed, deny_reason]
+      properties:
+        allowed:
+          type: boolean
+        deny_reason:
+          type: string
+          enum: [none, blocked, no_consent, role_denied, not_member]
+    RelayMessageIn:
+      type: object
+      required: [space_id, sender_wid, to_wid, ciphertext_blob]
+      properties:
+        space_id:
+          type: string
+        sender_wid:
+          type: string
+        to_wid:
+          type: string
+        ciphertext_blob:
+          type: string
+        client_message_id:
+          type: string
+    RelayMessageOut:
+      type: object
+      required: [message_id, space_id, sender_wid, ciphertext_blob, created_at]
+      properties:
+        message_id:
+          type: string
+        space_id:
+          type: string
+        sender_wid:
+          type: string
+        ciphertext_blob:
+          type: string
+        created_at:
+          type: string
+          format: date-time

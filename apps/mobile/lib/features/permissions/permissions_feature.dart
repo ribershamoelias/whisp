@@ -1,0 +1,3 @@
+class PermissionsFeature {
+  const PermissionsFeature();
+}

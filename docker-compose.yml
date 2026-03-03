@@ -1,0 +1,33 @@
+version: '3.9'
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: whisp
+      POSTGRES_USER: whisp
+      POSTGRES_PASSWORD: whisp
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/schema.sql:ro
+
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
+
+  api:
+    image: node:20
+    working_dir: /workspace/apps/api
+    volumes:
+      - ./:/workspace
+    command: sh -c "npm install && npm run build && npm run start"
+    ports:
+      - '3000:3000'
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  postgres_data:

@@ -1,0 +1,3 @@
+class IdentityPage {
+  const IdentityPage();
+}

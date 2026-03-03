@@ -1,0 +1,3 @@
+class SpacesPage {
+  const SpacesPage();
+}

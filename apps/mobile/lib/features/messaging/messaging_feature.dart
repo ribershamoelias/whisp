@@ -1,0 +1,3 @@
+class MessagingFeature {
+  const MessagingFeature();
+}

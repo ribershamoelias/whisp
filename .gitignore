@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+apps/api/node_modules/
+apps/api/dist/
+apps/api/coverage/
+
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub/
+apps/mobile/.dart_tool/
+apps/mobile/build/
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,3 @@
+class MessagingPage {
+  const MessagingPage();
+}

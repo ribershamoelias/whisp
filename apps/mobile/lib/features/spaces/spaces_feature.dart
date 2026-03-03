@@ -1,0 +1,3 @@
+class SpacesFeature {
+  const SpacesFeature();
+}

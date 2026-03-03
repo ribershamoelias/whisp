@@ -1,0 +1,3 @@
+class IdentityFeature {
+  const IdentityFeature();
+}

@@ -1,0 +1,3 @@
+class AuthFeature {
+  const AuthFeature();
+}

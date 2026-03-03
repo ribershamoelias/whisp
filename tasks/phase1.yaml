@@ -1,0 +1,1292 @@
+version: 1
+project: WHISP
+roadmap: phase1
+defaults:
+  estimate_unit: d
+  task_status: planned
+  dependency_rule: "All dependencies must be done before task can start"
+
+owners:
+  backend:
+    role: "Backend Engineer"
+  flutter:
+    role: "Flutter Engineer"
+  devops:
+    role: "DevOps/SRE Engineer"
+  security:
+    role: "Security Engineer"
+  qa:
+    role: "QA Engineer"
+  techlead:
+    role: "Tech Lead / Architect"
+
+global_constraints:
+  - id: GC-001
+    rule: "No plaintext message content may be logged, persisted, or emitted in telemetry"
+  - id: GC-002
+    rule: "No direct message creation without accepted request or existing private space"
+  - id: GC-003
+    rule: "Global block is enforced at Core WID level in all services"
+  - id: GC-004
+    rule: "No custom cryptography implementation; only vetted Signal-compatible libraries"
+  - id: GC-005
+    rule: "All API changes require OpenAPI update and contract validation"
+  - id: GC-006
+    rule: "Phase gate must pass before work starts on next phase"
+  - id: GC-007
+    rule: "Critical flow tests must stay green on main branch"
+
+gate_catalog:
+  - id: no_plaintext_logging
+    description: "Static checks and runtime tests prove no plaintext message logging"
+  - id: block_logic_not_affected
+    description: "Global block invariants remain unchanged"
+  - id: consent_policy_enforced
+    description: "Permission engine denies unauthorized DM or role action"
+  - id: openapi_validated
+    description: "OpenAPI spec is syntactically valid and contract-tested"
+  - id: migration_safe
+    description: "DB migration rollback and forward run successfully"
+  - id: crypto_boundary_preserved
+    description: "Server handles ciphertext only; client performs decrypt"
+  - id: replay_protection_enabled
+    description: "Token/message replay attempts are detected and rejected"
+  - id: observability_minimum_met
+    description: "Tracing, metrics, and logs emitted for critical flows"
+  - id: perf_budget_met
+    description: "Latency/error budgets met under defined load profile"
+
+evidence_standards:
+  required_artifacts:
+    - "CI run URL"
+    - "Test report artifact"
+    - "Coverage delta"
+    - "OpenAPI diff (if API task)"
+    - "Migration report (if DB task)"
+    - "Security checklist (if auth/crypto/policy task)"
+
+phases:
+  - id: F0
+    name: Foundation
+    objective: "Architecture freeze, repo baseline, CI and security baseline"
+    phase_gate:
+      required_checks:
+        - architecture_freeze_signed
+        - ci_pipeline_green
+        - security_baseline_enabled
+      stop_conditions:
+        - "Architecture decisions unresolved"
+        - "CI unstable for >2 days"
+    epics:
+      - id: F0-E1
+        name: Architecture Freeze
+        owner: techlead
+        tasks:
+          - id: F0-T1
+            title: "Create ADR-001 runtime architecture (modular monolith)"
+            owner: techlead
+            estimate: 0.5d
+            dependencies: []
+            deliverables:
+              - docs
+              - architecture_diagram
+            definition_of_done:
+              - adr_committed
+              - peer_review_done
+              - lint_clean
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - adr_link
+              - review_approval
+          - id: F0-T2
+            title: "Create ADR-002 auth/token strategy (JWT + refresh rotation)"
+            owner: techlead
+            estimate: 0.5d
+            dependencies: [F0-T1]
+            deliverables:
+              - docs
+              - sequence_diagram
+            definition_of_done:
+              - adr_committed
+              - threat_assumptions_listed
+            gate_checks:
+              - replay_protection_enabled
+            evidence_required:
+              - adr_link
+              - threat_notes
+          - id: F0-T3
+            title: "Create ADR-003 Signal integration boundary"
+            owner: techlead
+            estimate: 0.5d
+            dependencies: [F0-T1]
+            deliverables:
+              - docs
+              - boundary_contract
+            definition_of_done:
+              - adr_committed
+              - server_crypto_boundary_defined
+            gate_checks:
+              - crypto_boundary_preserved
+            evidence_required:
+              - adr_link
+              - boundary_table
+      - id: F0-E2
+        name: Repo and CI Baseline
+        owner: devops
+        tasks:
+          - id: F0-T4
+            title: "Initialize monorepo layout for api, flutter, docs, tasks"
+            owner: devops
+            estimate: 0.5d
+            dependencies: []
+            deliverables:
+              - code
+              - docs
+            definition_of_done:
+              - directory_structure_created
+              - bootstrap_commands_documented
+            gate_checks:
+              - observability_minimum_met
+            evidence_required:
+              - tree_snapshot
+          - id: F0-T5
+            title: "Add CI pipeline for lint, unit test, integration test stages"
+            owner: devops
+            estimate: 1d
+            dependencies: [F0-T4]
+            deliverables:
+              - code
+              - ci_config
+            definition_of_done:
+              - ci_stages_defined
+              - required_checks_protected
+              - lint_clean
+            gate_checks:
+              - observability_minimum_met
+            evidence_required:
+              - ci_run_url
+              - branch_protection_screenshot
+          - id: F0-T6
+            title: "Enable SAST, secret scanning, dependency audit in CI"
+            owner: security
+            estimate: 0.5d
+            dependencies: [F0-T5]
+            deliverables:
+              - ci_config
+              - security_config
+            definition_of_done:
+              - sast_enabled
+              - secret_scan_enabled
+              - dependency_audit_enabled
+            gate_checks:
+              - no_plaintext_logging
+            evidence_required:
+              - ci_run_url
+              - security_report
+      - id: F0-E3
+        name: Baseline Threat Model
+        owner: security
+        tasks:
+          - id: F0-T7
+            title: "Create threat model v1 for auth, messaging, permissions"
+            owner: security
+            estimate: 1d
+            dependencies: [F0-T1, F0-T2, F0-T3]
+            deliverables:
+              - docs
+              - risk_register
+            definition_of_done:
+              - misuse_cases_defined
+              - mitigations_mapped_to_tasks
+            gate_checks:
+              - consent_policy_enforced
+              - crypto_boundary_preserved
+            evidence_required:
+              - threat_model_doc
+              - signed_review
+          - id: F0-T8
+            title: "Define release DoD and phase gate checklist"
+            owner: techlead
+            estimate: 0.5d
+            dependencies: [F0-T7]
+            deliverables:
+              - docs
+            definition_of_done:
+              - gate_checklist_committed
+              - team_acknowledgement_recorded
+            gate_checks:
+              - openapi_validated
+            evidence_required:
+              - checklist_doc
+
+  - id: F1
+    name: Core Platform
+    objective: "Identity, auth, device management, global block"
+    phase_gate:
+      required_checks:
+        - auth_flows_green
+        - global_block_enforced
+        - openapi_contract_pass
+      stop_conditions:
+        - "Refresh reuse attack not blocked"
+        - "Block behavior differs by endpoint"
+    epics:
+      - id: F1-E1
+        name: Identity Core
+        owner: backend
+        tasks:
+          - id: F1-T1
+            title: "Implement WID registration endpoint"
+            owner: backend
+            estimate: 1d
+            dependencies: [F0-T8]
+            deliverables:
+              - code
+              - unit_tests
+              - openapi_update
+            definition_of_done:
+              - unit_tests_pass
+              - integration_test_pass
+              - openapi_validated
+              - lint_clean
+            gate_checks:
+              - block_logic_not_affected
+            evidence_required:
+              - ci_run_url
+              - api_contract_report
+          - id: F1-T2
+            title: "Persist user identity record with immutable WID constraint"
+            owner: backend
+            estimate: 0.5d
+            dependencies: [F1-T1]
+            deliverables:
+              - code
+              - db_migration
+              - integration_tests
+            definition_of_done:
+              - migration_applied
+              - unique_constraint_verified
+              - integration_test_pass
+            gate_checks:
+              - migration_safe
+            evidence_required:
+              - migration_log
+              - test_report
+          - id: F1-T3
+            title: "Implement device registration endpoint with per-device key metadata"
+            owner: backend
+            estimate: 1d
+            dependencies: [F1-T1]
+            deliverables:
+              - code
+              - openapi_update
+              - unit_tests
+            definition_of_done:
+              - schema_validation_enforced
+              - duplicate_device_rejected
+              - unit_tests_pass
+            gate_checks:
+              - openapi_validated
+            evidence_required:
+              - api_contract_report
+              - ci_run_url
+          - id: F1-T4
+            title: "Implement user key bundle retrieval endpoint (public keys only)"
+            owner: backend
+            estimate: 0.5d
+            dependencies: [F1-T1, F1-T3]
+            deliverables:
+              - code
+              - unit_tests
+              - openapi_update
+            definition_of_done:
+              - private_key_fields_absent
+              - unauthorized_access_rejected
+              - unit_tests_pass
+            gate_checks:
+              - crypto_boundary_preserved
+            evidence_required:
+              - response_schema_snapshot
+              - ci_run_url
+      - id: F1-E2
+        name: Auth and Session Security
+        owner: backend
+        tasks:
+          - id: F1-T5
+            title: "Implement short-lived JWT access token issuance"
+            owner: backend
+            estimate: 0.75d
+            dependencies: [F1-T1]
+            deliverables:
+              - code
+              - unit_tests
+              - openapi_update
+            definition_of_done:
+              - exp_claim_verified
+              - audience_and_issuer_validated
+              - unit_tests_pass
+            gate_checks:
+              - replay_protection_enabled
+            evidence_required:
+              - token_claim_test_report
+          - id: F1-T6
+            title: "Implement refresh token rotation with jti invalidation"
+            owner: backend
+            estimate: 1d
+            dependencies: [F1-T5]
+            deliverables:
+              - code
+              - db_migration
+              - integration_tests
+            definition_of_done:
+              - one_time_refresh_enforced
+              - jti_persisted_and_revoked
+              - integration_test_pass
+            gate_checks:
+              - replay_protection_enabled
+            evidence_required:
+              - integration_report
+              - migration_log
+          - id: F1-T7
+            title: "Add refresh token replay attack detection and revoke chain"
+            owner: backend
+            estimate: 0.75d
+            dependencies: [F1-T6]
+            deliverables:
+              - code
+              - integration_tests
+              - security_notes
+            definition_of_done:
+              - replay_attempt_returns_401
+              - device_session_revoked
+              - integration_test_pass
+            gate_checks:
+              - replay_protection_enabled
+            evidence_required:
+              - attack_simulation_report
+          - id: F1-T8
+            title: "Implement logout and global session revocation endpoint"
+            owner: backend
+            estimate: 0.5d
+            dependencies: [F1-T6]
+            deliverables:
+              - code
+              - openapi_update
+              - integration_tests
+            definition_of_done:
+              - refresh_tokens_invalidated
+              - protected_route_denied_after_logout
+              - integration_test_pass
+            gate_checks:
+              - replay_protection_enabled
+            evidence_required:
+              - api_contract_report
+              - integration_report
+      - id: F1-E3
+        name: Global Block Enforcement
+        owner: backend
+        tasks:
+          - id: F1-T9
+            title: "Implement add/remove global block endpoints on WID"
+            owner: backend
+            estimate: 0.75d
+            dependencies: [F1-T1]
+            deliverables:
+              - code
+              - openapi_update
+              - unit_tests
+            definition_of_done:
+              - idempotent_block_unblock
+              - self_block_rejected
+              - unit_tests_pass
+            gate_checks:
+              - block_logic_not_affected
+            evidence_required:
+              - ci_run_url
+              - api_contract_report
+          - id: F1-T10
+            title: "Apply block middleware hook in DM, request, and membership APIs"
+            owner: backend
+            estimate: 1d
+            dependencies: [F1-T9]
+            deliverables:
+              - code
+              - integration_tests
+            definition_of_done:
+              - blocked_actor_denied_in_all_flows
+              - deny_reason_consistent
+              - integration_test_pass
+            gate_checks:
+              - block_logic_not_affected
+              - consent_policy_enforced
+            evidence_required:
+              - cross_flow_test_report
+          - id: F1-T11
+            title: "Implement audit events for block lifecycle actions"
+            owner: backend
+            estimate: 0.5d
+            dependencies: [F1-T9]
+            deliverables:
+              - code
+              - unit_tests
+              - observability_config
+            definition_of_done:
+              - audit_event_schema_valid
+              - pii_policy_respected
+              - unit_tests_pass
+            gate_checks:
+              - observability_minimum_met
+              - no_plaintext_logging
+            evidence_required:
+              - log_sample
+              - test_report
+
+  - id: F2
+    name: Messaging Core
+    objective: "Signal sessions, encrypted relay, offline queue and retries"
+    phase_gate:
+      required_checks:
+        - e2ee_flow_green
+        - offline_retry_green
+        - ciphertext_only_server
+      stop_conditions:
+        - "Session handshake unstable"
+        - "Message loss in integration tests"
+    epics:
+      - id: F2-E1
+        name: Client Crypto and Storage
+        owner: flutter
+        tasks:
+          - id: F2-T1
+            title: "Integrate Signal library adapter behind domain interface"
+            owner: flutter
+            estimate: 1d
+            dependencies: [F1-T4]
+            deliverables:
+              - code
+              - unit_tests
+              - docs
+            definition_of_done:
+              - adapter_interface_committed
+              - key_ops_mockable
+              - unit_tests_pass
+            gate_checks:
+              - crypto_boundary_preserved
+            evidence_required:
+              - adapter_contract_tests
+          - id: F2-T2
+            title: "Implement secure identity keypair generation and sealed storage"
+            owner: flutter
+            estimate: 1d
+            dependencies: [F2-T1]
+            deliverables:
+              - code
+              - unit_tests
+              - platform_config
+            definition_of_done:
+              - keystore_or_enclave_used
+              - key_export_disallowed
+              - unit_tests_pass
+            gate_checks:
+              - crypto_boundary_preserved
+            evidence_required:
+              - platform_security_checklist
+              - test_report
+          - id: F2-T3
+            title: "Implement encrypted local message store (ciphertext only)"
+            owner: flutter
+            estimate: 1d
+            dependencies: [F2-T2]
+            deliverables:
+              - code
+              - db_schema
+              - integration_tests
+            definition_of_done:
+              - plaintext_not_persisted
+              - db_encryption_enabled
+              - integration_test_pass
+            gate_checks:
+              - no_plaintext_logging
+              - crypto_boundary_preserved
+            evidence_required:
+              - db_schema_snapshot
+              - storage_test_report
+      - id: F2-E2
+        name: Relay and Delivery Path
+        owner: backend
+        tasks:
+          - id: F2-T4
+            title: "Create relay API endpoint for ciphertext payload ingest"
+            owner: backend
+            estimate: 1d
+            dependencies: [F1-T10]
+            deliverables:
+              - code
+              - openapi_update
+              - unit_tests
+            definition_of_done:
+              - payload_schema_rejects_plaintext_fields
+              - auth_required
+              - unit_tests_pass
+            gate_checks:
+              - crypto_boundary_preserved
+              - openapi_validated
+            evidence_required:
+              - contract_report
+              - ci_run_url
+          - id: F2-T5
+            title: "Persist encrypted message blob and immutable metadata"
+            owner: backend
+            estimate: 0.75d
+            dependencies: [F2-T4]
+            deliverables:
+              - code
+              - db_migration
+              - integration_tests
+            definition_of_done:
+              - ciphertext_blob_required
+              - metadata_constraints_validated
+              - integration_test_pass
+            gate_checks:
+              - migration_safe
+              - crypto_boundary_preserved
+            evidence_required:
+              - migration_log
+              - integration_report
+          - id: F2-T6
+            title: "Implement recipient fanout worker with idempotent delivery tokens"
+            owner: backend
+            estimate: 1d
+            dependencies: [F2-T5]
+            deliverables:
+              - code
+              - worker_config
+              - integration_tests
+            definition_of_done:
+              - duplicate_deliveries_prevented
+              - retry_with_backoff_enabled
+              - integration_test_pass
+            gate_checks:
+              - replay_protection_enabled
+            evidence_required:
+              - queue_test_report
+          - id: F2-T7
+            title: "Implement WebSocket event for encrypted message availability"
+            owner: backend
+            estimate: 0.75d
+            dependencies: [F2-T6]
+            deliverables:
+              - code
+              - integration_tests
+              - observability_config
+            definition_of_done:
+              - authorized_subscriptions_only
+              - delivery_event_emitted
+              - integration_test_pass
+            gate_checks:
+              - observability_minimum_met
+            evidence_required:
+              - ws_integration_report
+      - id: F2-E3
+        name: Offline Queue and Retry
+        owner: flutter
+        tasks:
+          - id: F2-T8
+            title: "Implement outbound offline queue persistence with dedupe key"
+            owner: flutter
+            estimate: 0.75d
+            dependencies: [F2-T3, F2-T4]
+            deliverables:
+              - code
+              - integration_tests
+            definition_of_done:
+              - queue_survives_app_restart
+              - duplicate_enqueue_prevented
+              - integration_test_pass
+            gate_checks:
+              - replay_protection_enabled
+            evidence_required:
+              - client_queue_test_report
+          - id: F2-T9
+            title: "Implement retry scheduler with exponential backoff and jitter"
+            owner: flutter
+            estimate: 0.75d
+            dependencies: [F2-T8]
+            deliverables:
+              - code
+              - unit_tests
+            definition_of_done:
+              - max_retry_policy_enforced
+              - jitter_applied
+              - unit_tests_pass
+            gate_checks:
+              - perf_budget_met
+            evidence_required:
+              - retry_policy_test_report
+          - id: F2-T10
+            title: "Add delivery acknowledgement handling and queue drain"
+            owner: flutter
+            estimate: 0.5d
+            dependencies: [F2-T7, F2-T9]
+            deliverables:
+              - code
+              - integration_tests
+            definition_of_done:
+              - ack_marks_sent
+              - stale_items_expired
+              - integration_test_pass
+            gate_checks:
+              - perf_budget_met
+            evidence_required:
+              - queue_drain_test_report
+
+  - id: F3
+    name: Spaces and Requests
+    objective: "Space lifecycle, roles, consent request flow"
+    phase_gate:
+      required_checks:
+        - request_accept_private_space_green
+        - role_enforcement_green
+      stop_conditions:
+        - "Duplicate private spaces from same request"
+        - "Role escalation path exists"
+    epics:
+      - id: F3-E1
+        name: Spaces Service
+        owner: backend
+        tasks:
+          - id: F3-T1
+            title: "Implement create space endpoint with type/public_flag validation"
+            owner: backend
+            estimate: 0.75d
+            dependencies: [F1-T10]
+            deliverables:
+              - code
+              - openapi_update
+              - unit_tests
+            definition_of_done:
+              - only_allowed_space_types
+              - creator_membership_seeded
+              - unit_tests_pass
+            gate_checks:
+              - openapi_validated
+            evidence_required:
+              - api_contract_report
+          - id: F3-T2
+            title: "Implement join/leave space endpoints with membership constraints"
+            owner: backend
+            estimate: 1d
+            dependencies: [F3-T1]
+            deliverables:
+              - code
+              - integration_tests
+              - openapi_update
+            definition_of_done:
+              - duplicate_membership_rejected
+              - leave_rules_enforced
+              - integration_test_pass
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - integration_report
+          - id: F3-T3
+            title: "Implement role assignment endpoint with authorization checks"
+            owner: backend
+            estimate: 0.75d
+            dependencies: [F3-T1]
+            deliverables:
+              - code
+              - unit_tests
+              - integration_tests
+            definition_of_done:
+              - unauthorized_role_change_denied
+              - role_transition_rules_enforced
+              - tests_pass
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - role_transition_test_report
+      - id: F3-E2
+        name: Contact Request Flow
+        owner: backend
+        tasks:
+          - id: F3-T4
+            title: "Implement create contact request endpoint with idempotency key"
+            owner: backend
+            estimate: 0.75d
+            dependencies: [F1-T10]
+            deliverables:
+              - code
+              - openapi_update
+              - integration_tests
+            definition_of_done:
+              - duplicate_request_prevented
+              - blocked_targets_rejected
+              - integration_test_pass
+            gate_checks:
+              - block_logic_not_affected
+              - consent_policy_enforced
+            evidence_required:
+              - request_flow_test_report
+          - id: F3-T5
+            title: "Implement accept/reject request endpoint with atomic status transition"
+            owner: backend
+            estimate: 1d
+            dependencies: [F3-T4]
+            deliverables:
+              - code
+              - integration_tests
+            definition_of_done:
+              - status_transition_atomic
+              - second_accept_rejected
+              - integration_test_pass
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - concurrency_test_report
+          - id: F3-T6
+            title: "Create private space transactionally on request acceptance"
+            owner: backend
+            estimate: 1d
+            dependencies: [F3-T5, F3-T1]
+            deliverables:
+              - code
+              - db_migration
+              - integration_tests
+            definition_of_done:
+              - exactly_one_private_space_per_pair
+              - membership_seeded_for_both_users
+              - integration_test_pass
+            gate_checks:
+              - migration_safe
+              - consent_policy_enforced
+            evidence_required:
+              - transaction_test_report
+              - migration_log
+      - id: F3-E3
+        name: Flutter Spaces and Requests UI Domain
+        owner: flutter
+        tasks:
+          - id: F3-T7
+            title: "Implement spaces repository and use-cases (create/join/leave/list)"
+            owner: flutter
+            estimate: 1d
+            dependencies: [F3-T2]
+            deliverables:
+              - code
+              - unit_tests
+            definition_of_done:
+              - repository_contract_complete
+              - use_case_tests_pass
+              - lint_clean
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - test_report
+          - id: F3-T8
+            title: "Implement request inbox/outbox flows with accept/reject actions"
+            owner: flutter
+            estimate: 1d
+            dependencies: [F3-T5]
+            deliverables:
+              - code
+              - widget_tests
+              - integration_tests
+            definition_of_done:
+              - pending_state_synced
+              - duplicate_action_guarded
+              - tests_pass
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - ui_test_report
+          - id: F3-T9
+            title: "Display role badges and permission hints from server deny reasons"
+            owner: flutter
+            estimate: 0.5d
+            dependencies: [F3-T3]
+            deliverables:
+              - code
+              - widget_tests
+            definition_of_done:
+              - deny_reason_mapping_complete
+              - localization_ready
+              - tests_pass
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - screenshot_set
+              - widget_test_report
+
+  - id: F4
+    name: Permission Enforcement
+    objective: "Central policy engine and deterministic deny reasons"
+    phase_gate:
+      required_checks:
+        - all_actions_policy_guarded
+        - deny_reason_deterministic
+      stop_conditions:
+        - "Any endpoint bypasses policy engine"
+        - "Client/server policy mismatch unresolved"
+    epics:
+      - id: F4-E1
+        name: Permission Service Core
+        owner: backend
+        tasks:
+          - id: F4-T1
+            title: "Implement policy decision contract and deny reason enum"
+            owner: backend
+            estimate: 0.5d
+            dependencies: [F3-T6]
+            deliverables:
+              - code
+              - docs
+              - openapi_update
+            definition_of_done:
+              - enum_is_exhaustive
+              - schema_shared_across_services
+              - openapi_validated
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - contract_snapshot
+          - id: F4-T2
+            title: "Implement DM eligibility policy (request/private-space/block)"
+            owner: backend
+            estimate: 1d
+            dependencies: [F4-T1]
+            deliverables:
+              - code
+              - unit_tests
+              - integration_tests
+            definition_of_done:
+              - all_decision_branches_covered
+              - blocked_users_always_denied
+              - tests_pass
+            gate_checks:
+              - consent_policy_enforced
+              - block_logic_not_affected
+            evidence_required:
+              - decision_table_tests
+          - id: F4-T3
+            title: "Implement role action policy for space moderation operations"
+            owner: backend
+            estimate: 0.75d
+            dependencies: [F4-T1, F3-T3]
+            deliverables:
+              - code
+              - unit_tests
+              - integration_tests
+            definition_of_done:
+              - role_hierarchy_respected
+              - privilege_escalation_denied
+              - tests_pass
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - role_policy_test_report
+          - id: F4-T4
+            title: "Integrate policy middleware into relay, requests, spaces endpoints"
+            owner: backend
+            estimate: 1d
+            dependencies: [F4-T2, F4-T3]
+            deliverables:
+              - code
+              - integration_tests
+            definition_of_done:
+              - middleware_attached_to_all_target_routes
+              - bypass_tests_fail_closed
+              - integration_test_pass
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - route_coverage_report
+      - id: F4-E2
+        name: Client Policy Awareness
+        owner: flutter
+        tasks:
+          - id: F4-T5
+            title: "Implement client pre-check use-cases mirroring server policy contract"
+            owner: flutter
+            estimate: 0.75d
+            dependencies: [F4-T1]
+            deliverables:
+              - code
+              - unit_tests
+            definition_of_done:
+              - contract_sync_test_added
+              - precheck_never_overrides_server_denial
+              - tests_pass
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - contract_sync_report
+          - id: F4-T6
+            title: "Map deny reasons to deterministic UX states"
+            owner: flutter
+            estimate: 0.5d
+            dependencies: [F4-T5]
+            deliverables:
+              - code
+              - widget_tests
+            definition_of_done:
+              - all_deny_reasons_handled
+              - unknown_reason_fallback_defined
+              - tests_pass
+            gate_checks:
+              - consent_policy_enforced
+            evidence_required:
+              - widget_test_report
+
+  - id: F5
+    name: Hardening and Release Readiness
+    objective: "Performance, security, observability, operational readiness"
+    phase_gate:
+      required_checks:
+        - critical_security_findings_zero
+        - restore_drill_passed
+        - slo_targets_met
+      stop_conditions:
+        - "Open critical vulnerability"
+        - "Backup restore failure"
+        - "SLO miss under baseline load"
+    epics:
+      - id: F5-E1
+        name: Observability and SLO
+        owner: devops
+        tasks:
+          - id: F5-T1
+            title: "Implement OpenTelemetry traces for auth, request, relay critical paths"
+            owner: devops
+            estimate: 1d
+            dependencies: [F4-T4]
+            deliverables:
+              - code
+              - observability_config
+              - integration_tests
+            definition_of_done:
+              - trace_context_propagates
+              - pii_scrubbing_verified
+              - integration_test_pass
+            gate_checks:
+              - observability_minimum_met
+              - no_plaintext_logging
+            evidence_required:
+              - trace_samples
+              - pii_scrub_report
+          - id: F5-T2
+            title: "Define SLI/SLO dashboards and alert thresholds"
+            owner: devops
+            estimate: 0.75d
+            dependencies: [F5-T1]
+            deliverables:
+              - dashboards
+              - alert_rules
+              - docs
+            definition_of_done:
+              - p95_latency_sli_defined
+              - error_budget_defined
+              - alerts_fire_in_test
+            gate_checks:
+              - observability_minimum_met
+            evidence_required:
+              - dashboard_export
+              - alert_test_report
+      - id: F5-E2
+        name: Security Hardening
+        owner: security
+        tasks:
+          - id: F5-T3
+            title: "Run auth and policy penetration test suite"
+            owner: security
+            estimate: 1d
+            dependencies: [F4-T4]
+            deliverables:
+              - security_report
+              - regression_tests
+            definition_of_done:
+              - findings_classified
+              - critical_findings_fixed_or_blocked
+              - regression_tests_added
+            gate_checks:
+              - replay_protection_enabled
+              - consent_policy_enforced
+            evidence_required:
+              - pentest_report
+              - fix_verification_report
+          - id: F5-T4
+            title: "Run secure logging audit for plaintext and sensitive metadata leaks"
+            owner: security
+            estimate: 0.5d
+            dependencies: [F5-T1]
+            deliverables:
+              - security_report
+              - ci_rule_update
+            definition_of_done:
+              - forbidden_patterns_checked
+              - runtime_log_sampling_passed
+              - ci_gate_added
+            gate_checks:
+              - no_plaintext_logging
+            evidence_required:
+              - log_audit_report
+              - ci_run_url
+      - id: F5-E3
+        name: Reliability and Recovery
+        owner: devops
+        tasks:
+          - id: F5-T5
+            title: "Implement backup and restore runbook for PostgreSQL and Redis"
+            owner: devops
+            estimate: 0.75d
+            dependencies: [F2-T5, F2-T6]
+            deliverables:
+              - docs
+              - scripts
+              - drill_report
+            definition_of_done:
+              - backup_schedule_defined
+              - restore_rto_measured
+              - drill_passed
+            gate_checks:
+              - migration_safe
+            evidence_required:
+              - restore_drill_report
+              - runbook_link
+          - id: F5-T6
+            title: "Execute load profile test for messaging and request flows"
+            owner: qa
+            estimate: 1d
+            dependencies: [F5-T2]
+            deliverables:
+              - load_tests
+              - performance_report
+            definition_of_done:
+              - target_rps_sustained
+              - p95_under_budget
+              - error_rate_under_threshold
+            gate_checks:
+              - perf_budget_met
+            evidence_required:
+              - k6_report
+              - trend_chart
+
+supplemental_task_sets:
+  critical_flow_test_tasks:
+    owner: qa
+    tasks:
+      - id: CFT-T1
+        title: "E2E: request -> accept -> private space creation -> first encrypted message"
+        estimate: 1d
+        dependencies: [F3-T6, F2-T10]
+        deliverables:
+          - integration_tests
+          - test_data_fixtures
+        definition_of_done:
+          - flow_passes_on_clean_db
+          - flow_passes_on_migrated_db
+          - ci_nightly_enabled
+        gate_checks:
+          - consent_policy_enforced
+          - crypto_boundary_preserved
+        evidence_required:
+          - e2e_report
+          - ci_run_url
+      - id: CFT-T2
+        title: "E2E: global block prevents request, DM, and relay delivery"
+        estimate: 0.75d
+        dependencies: [F1-T10, F4-T4]
+        deliverables:
+          - integration_tests
+        definition_of_done:
+          - all_blocked_actions_denied
+          - deny_reasons_match_contract
+          - tests_pass
+        gate_checks:
+          - block_logic_not_affected
+          - consent_policy_enforced
+        evidence_required:
+          - cross_service_test_report
+      - id: CFT-T3
+        title: "E2E: offline queue resend with ack drain after reconnect"
+        estimate: 0.75d
+        dependencies: [F2-T10]
+        deliverables:
+          - integration_tests
+          - network_fault_scripts
+        definition_of_done:
+          - no_message_loss
+          - no_duplicate_user_visible_messages
+          - tests_pass
+        gate_checks:
+          - perf_budget_met
+          - replay_protection_enabled
+        evidence_required:
+          - reconnect_test_report
+
+  security_regression_tasks:
+    owner: security
+    tasks:
+      - id: SRT-T1
+        title: "Regression: refresh token reuse attack suite"
+        estimate: 0.5d
+        dependencies: [F1-T7]
+        deliverables:
+          - integration_tests
+        definition_of_done:
+          - reuse_attack_denied
+          - session_chain_revoked
+          - tests_pass
+        gate_checks:
+          - replay_protection_enabled
+        evidence_required:
+          - security_test_report
+      - id: SRT-T2
+        title: "Regression: unauthorized role escalation attempts"
+        estimate: 0.5d
+        dependencies: [F4-T3]
+        deliverables:
+          - integration_tests
+        definition_of_done:
+          - all_escalation_paths_denied
+          - deny_reason_deterministic
+          - tests_pass
+        gate_checks:
+          - consent_policy_enforced
+        evidence_required:
+          - role_escalation_report
+      - id: SRT-T3
+        title: "Regression: plaintext leakage scanner on API logs and traces"
+        estimate: 0.5d
+        dependencies: [F5-T1, F5-T4]
+        deliverables:
+          - ci_rule_update
+          - security_tests
+        definition_of_done:
+          - leakage_patterns_detected_in_fixture
+          - production_profile_zero_findings
+          - tests_pass
+        gate_checks:
+          - no_plaintext_logging
+        evidence_required:
+          - leak_scan_report
+
+  policy_test_matrix_tasks:
+    owner: qa
+    tasks:
+      - id: PTM-T1
+        title: "Build decision table for DM eligibility permutations"
+        estimate: 0.5d
+        dependencies: [F4-T2]
+        deliverables:
+          - docs
+          - unit_tests
+        definition_of_done:
+          - permutations_cover_block_request_space_states
+          - expected_deny_reason_per_case
+          - tests_pass
+        gate_checks:
+          - consent_policy_enforced
+          - block_logic_not_affected
+        evidence_required:
+          - decision_table_artifact
+          - test_report
+      - id: PTM-T2
+        title: "Build decision table for role moderation actions"
+        estimate: 0.5d
+        dependencies: [F4-T3]
+        deliverables:
+          - docs
+          - integration_tests
+        definition_of_done:
+          - all_role_transitions_covered
+          - forbidden_actions_mapped
+          - tests_pass
+        gate_checks:
+          - consent_policy_enforced
+        evidence_required:
+          - matrix_artifact
+          - test_report
+      - id: PTM-T3
+        title: "Automate policy parity check between client precheck and server decisions"
+        estimate: 0.75d
+        dependencies: [F4-T5]
+        deliverables:
+          - integration_tests
+          - ci_job
+        definition_of_done:
+          - parity_mismatch_fails_ci
+          - deny_reason_parity_reported
+          - tests_pass
+        gate_checks:
+          - consent_policy_enforced
+        evidence_required:
+          - ci_run_url
+          - parity_report
+
+  ci_gate_tasks:
+    owner: devops
+    tasks:
+      - id: CIG-T1
+        title: "Add mandatory CI check: openapi diff + schema validation"
+        estimate: 0.5d
+        dependencies: [F0-T5]
+        deliverables:
+          - ci_config
+        definition_of_done:
+          - api_changes_without_spec_fail
+          - schema_validation_on_pr
+          - check_required_on_main
+        gate_checks:
+          - openapi_validated
+        evidence_required:
+          - ci_run_url
+      - id: CIG-T2
+        title: "Add mandatory CI check: migration up/down verification"
+        estimate: 0.5d
+        dependencies: [F1-T2]
+        deliverables:
+          - ci_config
+          - db_test_script
+        definition_of_done:
+          - migration_up_down_runs_clean
+          - schema_drift_check_enabled
+          - check_required_on_main
+        gate_checks:
+          - migration_safe
+        evidence_required:
+          - ci_run_url
+          - migration_ci_log
+      - id: CIG-T3
+        title: "Add mandatory CI check: policy coverage threshold"
+        estimate: 0.5d
+        dependencies: [F4-T4, PTM-T1, PTM-T2]
+        deliverables:
+          - ci_config
+          - coverage_config
+        definition_of_done:
+          - policy_module_coverage_threshold_defined
+          - threshold_breach_fails_ci
+          - check_required_on_main
+        gate_checks:
+          - consent_policy_enforced
+        evidence_required:
+          - coverage_report
+          - ci_run_url
+      - id: CIG-T4
+        title: "Add mandatory CI check: forbidden plaintext log pattern scan"
+        estimate: 0.5d
+        dependencies: [F0-T6]
+        deliverables:
+          - ci_config
+          - security_rule_set
+        definition_of_done:
+          - prohibited_patterns_configured
+          - fixture_violation_fails_ci
+          - check_required_on_main
+        gate_checks:
+          - no_plaintext_logging
+        evidence_required:
+          - ci_run_url
+          - fixture_test_log
