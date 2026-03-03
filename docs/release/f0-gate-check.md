@@ -4,9 +4,9 @@
 - Phase: `F0 - Foundation`
 - Review Date: `2026-03-03`
 - Reviewer: `Codex (Internal Pre-Audit)`
-- Review Status: `Completed - External CI Evidence Pending`
-- Repo Commit Hash: `bb89bc8`
-- CI Run Link: `PENDING (requires push to GitHub remote)`
+- Review Status: `Completed`
+- Repo Commit Hash: `a5fa688`
+- CI Run Link: `https://github.com/ribershamoelias/whisp/actions/runs/22641085990`
 - Threat Model Version: `v1` ([docs/security/threat-model-v1.md](../security/threat-model-v1.md))
 
 ## 2) Gate Matrix
@@ -16,7 +16,7 @@
 | G2 | Security Baseline | PASS | [Threat Model](../security/threat-model-v1.md), [Log Redaction Policy](../security/log-redaction-policy.md), [SafeLogger](../../apps/api/src/common/logging/safe-logger.service.ts), [Request Interceptor](../../apps/api/src/common/logging/request-logging.interceptor.ts), [Redaction E2E](../../apps/api/test/log-redaction.e2e.spec.ts), [CI Workflow](../../.github/workflows/ci.yml) | Redaction technisch erzwungen + Secret Scan + SAST Job in CI definiert. |
 | G3 | Consent Enforcement | PASS | [PolicyGuard](../../apps/api/src/common/authz/policy.guard.ts), [RequiresPolicy Decorator](../../apps/api/src/common/authz/requires-policy.decorator.ts), [Relay Controller](../../apps/api/src/modules/relay/relay.controller.ts), [PolicyGuard E2E](../../apps/api/test/policy-guard.e2e.spec.ts), [Consent Enforcement E2E](../../apps/api/test/consent-enforcement.e2e.spec.ts), [Block Sequence](../architecture/block-during-active-session-sequence.md) | Fail-Closed bei fehlender Policy-Metadata; Relay-Flow policy-gated. |
 | G4 | Auth + Token Strategy Freeze | PASS | [ADR-002](../adr/ADR-002-auth-token-strategy.md), [schema.sql](../../schema.sql) (`refresh_tokens.device_id`, `jti`, `revoked`) | Strategie eingefroren und als Implementationsvorgabe gesichert. |
-| G5 | CI & Reproduzierbarkeit | PARTIAL | [CI Workflow](../../.github/workflows/ci.yml), [YAML Validation Script](../../scripts/ci/validate_yaml.sh), [Migration Check Script](../../scripts/ci/check_migration.sh), [Console Ban Script](../../scripts/ci/check_no_console.sh), [README Badge](../../README.md) | Alle Gates definiert, aber finaler Nachweis eines echten GitHub-Runs fehlt noch. |
+| G5 | CI & Reproduzierbarkeit | PASS | [CI Workflow](../../.github/workflows/ci.yml), [YAML Validation Script](../../scripts/ci/validate_yaml.sh), [Migration Check Script](../../scripts/ci/check_migration.sh), [Console Ban Script](../../scripts/ci/check_no_console.sh), [README Badge](../../README.md), [CI Run](https://github.com/ribershamoelias/whisp/actions/runs/22641085990) | Echte GitHub-Execution auf `a5fa688` grün über alle Jobs. |
 
 ## 3) F0 Gate Kriterien (verbindlich)
 
@@ -60,13 +60,13 @@ Status: PASS
 Evidenz: siehe Gate Matrix G4.
 
 ### G5 - CI & Reproduzierbarkeit
-- CI grün (echter Run): FAIL (extern ausstehend)
+- CI grün (echter Run): PASS
 - Lint + Test + Build enforced: PASS
 - OpenAPI validiert: PASS
 - YAML validiert: PASS
 - Migration reproducible: PASS (CI job + script vorhanden)
 
-Status: PARTIAL
+Status: PASS
 Evidenz: siehe Gate Matrix G5.
 
 ## 4) Global Stop Condition Check
@@ -80,14 +80,14 @@ Evidenz: siehe Gate Matrix G5.
   - Begründung: Server ist autoritativ, Guard erzwingt Policy. Client-Parity-Tests folgen in F1/F4.
 
 ## 5) Gate-Entscheidung
-- F0 STATUS: NO-GO (bis externer CI-Nachweis vorliegt)
+- F0 STATUS: GO
 - Begründung:
   - Alle vier technischen Blocker sind im Code/CI umgesetzt.
-  - Finaler Auditpunkt "echter GitHub-Run mit URL" kann ohne Remote-Push nicht abgeschlossen werden.
+  - Externer CI-Nachweis liegt vor (Run `22641085990` auf Commit `a5fa688`, alle Jobs grün).
 - Rest-Risiken:
-  - Operativ: fehlender externer CI-Laufnachweis.
-  - Kein architektonischer Blocker mehr offen.
+  - Operativ: Monitoring-Tuning und Policy-Parity-Härtung folgen in F1/F4.
+  - Kein F0-Blocker offen.
 - Freigabe für F1:
-  - Erteilen nach 1 grünem GitHub-Workflow-Run mit Link auf Commit `bb89bc8`.
+  - Erteilt.
 
-Unterschrift (Tech Lead): `PENDING`
+Unterschrift (Tech Lead): `READY FOR SIGN-OFF`
