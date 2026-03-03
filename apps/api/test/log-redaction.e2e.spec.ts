@@ -50,6 +50,9 @@ describe('Log redaction (e2e)', () => {
       .expect(201);
 
     const echoCiphertext = Buffer.from('echo-sensitive-ciphertext').toString('base64');
+    const binaryEchoCiphertext = Buffer.from(
+      Array.from({ length: 1024 }, (_value, index) => index % 256)
+    ).toString('base64');
     await request(app.getHttpServer())
       .post('/relay/echo')
       .send({
@@ -60,10 +63,21 @@ describe('Log redaction (e2e)', () => {
       })
       .expect(201);
 
+    await request(app.getHttpServer())
+      .post('/relay/echo')
+      .send({
+        wid: 'wid-echo-log',
+        device_id: 'device-echo-log',
+        message_id: 'msg-echo-log-binary',
+        ciphertext: binaryEchoCiphertext
+      })
+      .expect(201);
+
     const logBody = sink.lines.join('\n');
     expect(logBody).toContain('[REDACTED]');
     expect(logBody).not.toContain(loginResponse.body.access_token as string);
     expect(logBody).not.toContain(loginResponse.body.refresh_token_value as string);
     expect(logBody).not.toContain(echoCiphertext);
+    expect(logBody).not.toContain(binaryEchoCiphertext);
   });
 });
