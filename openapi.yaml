@@ -17,9 +17,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [wid]
+              required: [wid, device_id]
               properties:
                 wid:
+                  type: string
+                device_id:
                   type: string
       responses:
         '200':
@@ -39,9 +41,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [wid, refresh_token_value]
+              required: [wid, device_id, refresh_token_value]
               properties:
                 wid:
+                  type: string
+                device_id:
                   type: string
                 refresh_token_value:
                   type: string

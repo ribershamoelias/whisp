@@ -22,7 +22,7 @@ describe('App (e2e)', () => {
   it('POST /auth/login returns token shape', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ wid: 'wid-1' })
+      .send({ wid: 'wid-1', device_id: 'device-a' })
       .expect(201);
 
     expect(response.body.access_token).toBeDefined();

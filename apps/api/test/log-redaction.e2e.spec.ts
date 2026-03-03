@@ -36,18 +36,22 @@ describe('Log redaction (e2e)', () => {
   it('redacts auth header and token fields', async () => {
     const loginResponse = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ wid: 'wid-1' })
+      .send({ wid: 'wid-1', device_id: 'device-a' })
       .expect(201);
 
     await request(app.getHttpServer())
       .post('/auth/refresh')
       .set('authorization', `Bearer ${loginResponse.body.access_token as string}`)
-      .send({ wid: 'wid-1', refresh_token_value: 'refresh-redaction-value' })
+      .send({
+        wid: 'wid-1',
+        device_id: 'device-a',
+        refresh_token_value: loginResponse.body.refresh_token_value as string
+      })
       .expect(201);
 
     const logBody = sink.lines.join('\n');
     expect(logBody).toContain('[REDACTED]');
     expect(logBody).not.toContain(loginResponse.body.access_token as string);
-    expect(logBody).not.toContain('refresh-redaction-value');
+    expect(logBody).not.toContain(loginResponse.body.refresh_token_value as string);
   });
 });

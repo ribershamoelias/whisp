@@ -8,14 +8,16 @@ export class AuthController {
 
   @Post('login')
   @RequiresPolicy('AUTH_LOGIN', { actor: 'wid' })
-  login(@Body() body: { wid: string }): Promise<AuthTokens> {
-    return this.authService.login(body.wid);
+  login(@Body() body: { wid: string; device_id?: string }): Promise<AuthTokens> {
+    return this.authService.login(body.wid, body.device_id);
   }
 
   @Post('refresh')
   @RequiresPolicy('AUTH_REFRESH', { actor: 'wid' })
-  refresh(@Body() body: { wid: string; refresh_token_value: string }): Promise<AuthTokens> {
-    return this.authService.refresh(body.wid, body.refresh_token_value);
+  refresh(
+    @Body() body: { wid: string; device_id?: string; refresh_token_value: string }
+  ): Promise<AuthTokens> {
+    return this.authService.refresh(body.wid, body.device_id, body.refresh_token_value);
   }
 
   @Post('logout')
