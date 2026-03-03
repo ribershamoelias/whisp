@@ -8,29 +8,29 @@ Scope lock: **Identity/Auth/Block only**. No Messaging, no Spaces, no Permission
 - Kein plaintext refresh token storage möglich machen.
 
 ### Konkrete Tasks
-- [ ] `refresh_tokens` auf `refresh_token_hash` umstellen.
-- [ ] `family_id` und aktive Token-Indizes ergänzen.
-- [ ] Device/Block Constraints prüfen und ggf. nachziehen.
-- [ ] OpenAPI für F1-Auth/Identity synchronisieren.
+- [x] `refresh_tokens` auf `refresh_token_hash` umstellen.
+- [x] `family_id` und aktive Token-Indizes ergänzen.
+- [x] Device/Block Constraints prüfen und ggf. nachziehen.
+- [x] OpenAPI für F1-Auth/Identity synchronisieren.
 
 ### Deliverables
-- [ ] Versionierte Migration committed.
-- [ ] Aktualisierte `schema.sql`/OpenAPI committed.
+- [x] Versionierte Migration committed.
+- [x] Aktualisierte `schema.sql`/OpenAPI committed.
 
 ### Tests (müssen grün sein)
-- [ ] Migration reproducibility check grün.
-- [ ] API lint/build grün.
-- [ ] OpenAPI lint (errors=0).
-- [ ] **Negative test plaintext persistence:** bewusst übergebener refresh token darf niemals unverändert in `refresh_token_hash` erscheinen.
+- [x] Migration reproducibility check grün.
+- [x] API lint/build grün.
+- [x] OpenAPI lint (errors=0).
+- [x] **Negative test plaintext persistence:** bewusst übergebener refresh token darf niemals unverändert in `refresh_token_hash` erscheinen.
 
 ### Gate am Tagesende
-- [ ] F1-Storage-Sicherheit nachgewiesen (technisch, nicht nur logisch).
+- [x] F1-Storage-Sicherheit nachgewiesen (technisch, nicht nur logisch).
 
 ### Daily Sign-off
-- Commit Hash:
-- CI Run Link:
-- Reviewer:
-- Reviewer Sign-off: [ ] PASS  [ ] FAIL
+- Commit Hash: `1b93442`
+- CI Run Link: `https://github.com/ribershamoelias/whisp/actions/runs/22641866273`
+- Reviewer: `Codex (Implementation), Pending external lead review`
+- Reviewer Sign-off: [x] PASS  [ ] FAIL
 
 ---
 
