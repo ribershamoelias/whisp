@@ -20,6 +20,10 @@ const config: Config = {
     './src/modules/identity/**/*.ts': {
       lines: 90,
       branches: 90
+    },
+    './src/modules/relay/**/*.ts': {
+      lines: 90,
+      branches: 90
     }
   },
   coverageDirectory: 'coverage',

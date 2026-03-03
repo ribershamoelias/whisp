@@ -119,9 +119,6 @@ export class RelayService {
   }
 
   private decodeBase64Ciphertext(value: string): Buffer {
-    if (value.length % 4 !== 0 || !/^[A-Za-z0-9+/]+=*$/.test(value)) {
-      throw new BadRequestException('ciphertext must be valid base64');
-    }
     const decoded = Buffer.from(value, 'base64');
     if (decoded.length === 0) {
       throw new BadRequestException('ciphertext must not be empty');

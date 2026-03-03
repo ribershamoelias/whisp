@@ -22,8 +22,10 @@ jobs:
       - run: npm install
       - run: ../../scripts/ci/check_no_console.sh
       - run: ../../scripts/ci/check_no_todo.sh
+      - run: ../../scripts/ci/check_relay_no_crypto.sh
       - run: npm run lint
       - run: npm run test:ci
+      - run: npm run test:security:relay
       - run: npm run build
 
   mobile:

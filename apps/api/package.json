@@ -7,7 +7,8 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "jest --passWithNoTests",
-    "test:ci": "jest --ci --coverage --passWithNoTests"
+    "test:ci": "jest --ci --coverage --passWithNoTests",
+    "test:security:relay": "jest --passWithNoTests test/relay-echo.e2e.spec.ts test/relay-echo-hardening.e2e.spec.ts test/log-redaction.e2e.spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
