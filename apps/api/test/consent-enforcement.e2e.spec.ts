@@ -25,8 +25,8 @@ describe('Consent and block enforcement (e2e)', () => {
     await request(app.getHttpServer())
       .post('/identity/blocks/wid-B')
       .set('x-wid', 'wid-A')
-      .send({})
-      .expect(201);
+      .send({ wid: 'wid-A' })
+      .expect(204);
 
     await request(app.getHttpServer())
       .post('/relay/messages')
@@ -37,5 +37,54 @@ describe('Consent and block enforcement (e2e)', () => {
         ciphertext_blob: 'ciphertext-payload'
       })
       .expect(403);
+  });
+
+  it('enforces block for active session token (fail-closed)', async () => {
+    await request(app.getHttpServer())
+      .post('/identity/register')
+      .send({ wid: 'wid-C', public_key: 'pub-C' })
+      .expect(201);
+
+    const blockedLogin = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ wid: 'wid-D', device_id: 'device-d1' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/identity/blocks/wid-D')
+      .set('x-wid', 'wid-C')
+      .send({ wid: 'wid-C' })
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .post('/relay/messages')
+      .set('authorization', `Bearer ${blockedLogin.body.access_token as string}`)
+      .send({
+        space_id: 'space-2',
+        sender_wid: 'wid-D',
+        to_wid: 'wid-C',
+        ciphertext_blob: 'ciphertext-payload'
+      })
+      .expect(403);
+  });
+
+  it('documents block read-scope: key-bundle reads remain allowed', async () => {
+    await request(app.getHttpServer())
+      .post('/identity/register')
+      .send({ wid: 'wid-E', public_key: 'pub-E' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/identity/register')
+      .send({ wid: 'wid-F', public_key: 'pub-F' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/identity/blocks/wid-F')
+      .set('x-wid', 'wid-E')
+      .send({ wid: 'wid-E' })
+      .expect(204);
+
+    await request(app.getHttpServer()).get('/identity/key-bundles/wid-E').expect(200);
   });
 });

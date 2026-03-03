@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-export type RevocationReason = 'rotated' | 'expired' | 'family_compromised';
+export type RevocationReason = 'rotated' | 'expired' | 'family_compromised' | 'device_revoked';
 
 export interface RefreshTokenRecord {
   wid: string;
@@ -20,6 +20,7 @@ export interface RefreshTokenStoreTx {
   insert(record: RefreshTokenRecord): void;
   revokeByJti(jti: string, reason: RevocationReason): void;
   revokeFamily(wid: string, deviceId: string, familyId: string, reason: RevocationReason): void;
+  revokeDevice(wid: string, deviceId: string, reason: RevocationReason): void;
   isFamilyCompromised(wid: string, deviceId: string, familyId: string): boolean;
 }
 
@@ -66,6 +67,14 @@ export class InMemoryRefreshTokenStore {
               record.revoked_reason = reason;
             });
         },
+        revokeDevice: (wid: string, deviceId: string, reason: RevocationReason) => {
+          txRecords
+            .filter((record) => record.wid === wid && record.device_id === deviceId && !record.revoked)
+            .forEach((record) => {
+              record.revoked = true;
+              record.revoked_reason = reason;
+            });
+        },
         isFamilyCompromised: (wid: string, deviceId: string, familyId: string) =>
           txRecords.some(
             (record) =>
@@ -92,6 +101,12 @@ export class InMemoryRefreshTokenStore {
     return this.records
       .filter((record) => record.wid === wid && record.device_id === deviceId)
       .map((record) => ({ ...record }));
+  }
+
+  async revokeDeviceFamilies(wid: string, deviceId: string): Promise<void> {
+    await this.withTransaction(async (tx) => {
+      tx.revokeDevice(wid, deviceId, 'device_revoked');
+    });
   }
 
   private async acquireLock(): Promise<() => void> {

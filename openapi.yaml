@@ -107,6 +107,29 @@ paths:
       responses:
         '201':
           description: Device registered
+  /identity/devices/{device_id}:
+    delete:
+      tags: [identity]
+      summary: Revoke a device and invalidate its token families
+      parameters:
+        - in: path
+          name: device_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wid]
+              properties:
+                wid:
+                  type: string
+      responses:
+        '204':
+          description: Device revoked
   /identity/key-bundles/{wid}:
     get:
       tags: [identity]
@@ -134,6 +157,16 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wid]
+              properties:
+                wid:
+                  type: string
       responses:
         '204':
           description: Blocked
@@ -146,6 +179,16 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wid]
+              properties:
+                wid:
+                  type: string
       responses:
         '204':
           description: Unblocked

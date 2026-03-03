@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { BlockRegistryService } from '../../common/state/block-registry.service';
+import { AuthService } from '../auth/auth.service';
 
 export interface RegisterIdentityInput {
   wid: string;
@@ -20,34 +21,49 @@ export interface PublicKeyBundle {
 
 @Injectable()
 export class IdentityService {
-  private currentWid = 'scaffold-wid';
+  private readonly devicesByWid = new Map<string, Map<string, string>>();
 
-  constructor(private readonly blockRegistry: BlockRegistryService) {}
+  constructor(
+    private readonly blockRegistry: BlockRegistryService,
+    private readonly authService: AuthService
+  ) {}
 
   async register(_input: RegisterIdentityInput): Promise<void> {
-    this.currentWid = _input.wid;
     return;
   }
 
   async registerDevice(_input: DeviceRegistration): Promise<void> {
+    const devices = this.devicesByWid.get(_input.wid) ?? new Map<string, string>();
+    devices.set(_input.device_id, _input.device_public_key);
+    this.devicesByWid.set(_input.wid, devices);
     return;
   }
 
   async getPublicKeyBundle(wid: string): Promise<PublicKeyBundle> {
+    const devices = this.devicesByWid.get(wid) ?? new Map<string, string>();
     return {
       wid,
       public_key: 'public-key-placeholder',
-      devices: []
+      devices: Array.from(devices.entries()).map(([device_id, device_public_key]) => ({
+        device_id,
+        device_public_key
+      }))
     };
   }
 
-  async block(_targetWid: string): Promise<void> {
-    this.blockRegistry.addBlock(this.currentWid, _targetWid);
+  async block(actorWid: string, targetWid: string): Promise<void> {
+    this.blockRegistry.addBlock(actorWid, targetWid);
     return;
   }
 
-  async unblock(_targetWid: string): Promise<void> {
-    this.blockRegistry.removeBlock(this.currentWid, _targetWid);
+  async unblock(actorWid: string, targetWid: string): Promise<void> {
+    this.blockRegistry.removeBlock(actorWid, targetWid);
     return;
+  }
+
+  async revokeDevice(wid: string, deviceId: string): Promise<void> {
+    const devices = this.devicesByWid.get(wid);
+    devices?.delete(deviceId);
+    await this.authService.revokeDeviceSessions(wid, deviceId);
   }
 }

@@ -115,4 +115,8 @@ export class AuthService {
   async logout(): Promise<void> {
     return;
   }
+
+  async revokeDeviceSessions(wid: string, deviceId: string): Promise<void> {
+    await this.refreshTokenStore.revokeDeviceFamilies(wid, deviceId);
+  }
 }
