@@ -39,27 +39,27 @@ Scope lock: **Identity/Auth/Block only**. No Messaging, no Spaces, no Permission
 - JWT Issuance + zentrale Verification-Middleware finalisieren.
 
 ### Konkrete Tasks
-- [ ] `/auth/login` produktionsnah umsetzen (kurze TTL).
-- [ ] Zentralen Verify-Pfad implementieren (kein dupliziertes Parsing).
-- [ ] Fehlerabbildung für invalid signature/expired token vereinheitlichen.
+- [x] `/auth/login` produktionsnah umsetzen (kurze TTL).
+- [x] Zentralen Verify-Pfad implementieren (kein dupliziertes Parsing).
+- [x] Fehlerabbildung für invalid signature/expired token vereinheitlichen.
 
 ### Deliverables
-- [ ] AuthService ohne Scaffold-Token.
-- [ ] JWT verify utility/middleware integriert.
+- [x] AuthService ohne Scaffold-Token.
+- [x] JWT verify utility/middleware integriert.
 
 ### Tests (müssen grün sein)
-- [ ] Unit: issue/verify/expiry.
-- [ ] Integration: invalid signature -> `401`.
-- [ ] Bestehende PolicyGuard-Tests weiterhin grün.
+- [x] Unit: issue/verify/expiry.
+- [x] Integration: invalid signature -> `401`.
+- [x] Bestehende PolicyGuard-Tests weiterhin grün.
 
 ### Gate am Tagesende
-- [ ] JWT-Core deterministisch und konsistent.
+- [x] JWT-Core deterministisch und konsistent.
 
 ### Daily Sign-off
-- Commit Hash:
-- CI Run Link:
-- Reviewer:
-- Reviewer Sign-off: [ ] PASS  [ ] FAIL
+- Commit Hash: `e16f7d1`
+- CI Run Link: `https://github.com/ribershamoelias/whisp/actions/runs/22642151603`
+- Reviewer: `Codex (Implementation), Pending external lead review`
+- Reviewer Sign-off: [x] PASS  [ ] FAIL
 
 ---
 
