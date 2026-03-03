@@ -36,13 +36,13 @@ describe('Log redaction (e2e)', () => {
   it('redacts auth header and token fields', async () => {
     await request(app.getHttpServer())
       .post('/auth/refresh')
-      .set('authorization', 'Bearer TOPSECRET-TOKEN')
-      .send({ wid: 'wid-1', refresh_token: 'REFRESH-SUPER-SECRET' })
+      .set('authorization', 'Bearer redaction-test-token')
+      .send({ wid: 'wid-1', refresh_token: 'refresh-redaction-value' })
       .expect(201);
 
     const logBody = sink.lines.join('\n');
     expect(logBody).toContain('[REDACTED]');
-    expect(logBody).not.toContain('TOPSECRET-TOKEN');
-    expect(logBody).not.toContain('REFRESH-SUPER-SECRET');
+    expect(logBody).not.toContain('redaction-test-token');
+    expect(logBody).not.toContain('refresh-redaction-value');
   });
 });
