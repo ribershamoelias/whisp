@@ -100,31 +100,31 @@ Scope lock: **Identity/Auth/Block only**. No Messaging, no Spaces, no Permission
 - Device Management + Block Determinismus finalisieren.
 
 ### Konkrete Tasks
-- [ ] Device revoke Endpoint implementieren.
-- [ ] Device revoke invalidiert nur device-spezifische Token-Familie.
-- [ ] Block API persistence + runtime sync härten.
-- [ ] Block behavior für read-scope explizit festlegen und dokumentieren.
+- [x] Device revoke Endpoint implementieren.
+- [x] Device revoke invalidiert nur device-spezifische Token-Familie.
+- [x] Block API persistence + runtime sync härten.
+- [x] Block behavior für read-scope explizit festlegen und dokumentieren.
 
 ### Deliverables
-- [ ] Device add/revoke vollständig implementiert.
-- [ ] Block enforcement policy dokumentiert (read/write scope).
+- [x] Device add/revoke vollständig implementiert.
+- [x] Block enforcement policy dokumentiert (read/write scope).
 
 ### Tests (müssen grün sein)
-- [ ] Device revocation test.
-- [ ] Cross-device isolation test.
-- [ ] Block after active session test.
-- [ ] **Block-read-scope test:**
+- [x] Device revocation test.
+- [x] Cross-device isolation test.
+- [x] Block after active session test.
+- [x] **Block-read-scope test:**
   - falls read gesperrt: blocked reads -> deny
   - falls read erlaubt: expliziter Nachweis, dass nur mutierende Flows geblockt werden
 
 ### Gate am Tagesende
-- [ ] Device- und Block-Verhalten deterministisch, scope-klar, fail-closed.
+- [x] Device- und Block-Verhalten deterministisch, scope-klar, fail-closed.
 
 ### Daily Sign-off
-- Commit Hash:
-- CI Run Link:
-- Reviewer:
-- Reviewer Sign-off: [ ] PASS  [ ] FAIL
+- Commit Hash: `0572c73`
+- CI Run Link: `https://github.com/ribershamoelias/whisp/actions/runs/22643767245`
+- Reviewer: `Codex (Implementation), Pending external lead review`
+- Reviewer Sign-off: [x] PASS  [ ] FAIL
 
 ---
 
