@@ -4,6 +4,13 @@ Version: `v2-f2-echo`
 Phase: `F2`  
 Scope: Relay Echo ciphertext transport (`/relay/echo` only)
 
+## Hard Constraints (Non-Negotiable)
+- Replay is blocked for echo submit.
+- `message_id` must be unique per `(wid, device_id)` with DB-enforced uniqueness.
+- Duplicate submit must return `409 Conflict` and must not mutate server state.
+- Maximum ciphertext payload is `65536` bytes (64 KiB).
+- Payload limit must be enforced at API boundary, DTO validation, and DB constraint.
+
 ## Security Boundary
 - Client performs encryption and decryption.
 - Relay stores and returns ciphertext envelope.
@@ -46,8 +53,9 @@ Impact:
 - Duplicate entries, potential app-level confusion, abuse amplification.
 
 Mitigations:
-- Idempotency/replay rule for echo submit (`message_id` uniqueness per `wid`).
-- Deterministic duplicate response (`409` or explicit idempotent response contract).
+- Replay is blocked by rule (`message_id` uniqueness per `(wid, device_id)`).
+- Deterministic duplicate response is `409 Conflict`.
+- Duplicate path is side-effect free (no extra write, no mutable state change).
 - Replay regression tests in CI.
 
 Evidence Required:
@@ -110,7 +118,10 @@ Impact:
 - Resource exhaustion, degraded API availability.
 
 Mitigations:
-- Hard maximum payload size in gateway/controller validation.
+- Hard maximum payload size set to `65536` bytes.
+- API request/body limit enforces `65536` bytes upper bound.
+- DTO validation enforces `65536` bytes upper bound.
+- DB `CHECK` constraint enforces `octet_length(ciphertext_blob) <= 65536`.
 - Request body limit and early rejection.
 - Rate limiting remains active from F0 baseline.
 

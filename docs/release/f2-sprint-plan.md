@@ -2,6 +2,13 @@
 
 Scope lock: **Encrypted Echo only**. No multi-user messaging, no session setup/rotation, no pre-key bundle flow, no groups, no identity expansion, no permission-engine refactor, no UX polish.
 
+## Hard Constraints (Non-Negotiable)
+- Replay is **blocked** for Echo submit.
+- `message_id` must be unique per `(wid, device_id)` at DB level.
+- Duplicate submit must return **`409 Conflict`** and must not mutate state.
+- Maximum ciphertext payload is **64 KiB (`65536` bytes)**.
+- 64 KiB limit must be enforced at API body limit, DTO validation, and DB `CHECK` constraint.
+
 ## Scope
 ### In Scope
 - Client-side payload encryption for self-echo test flow.
@@ -40,7 +47,7 @@ Scope lock: **Encrypted Echo only**. No multi-user messaging, no session setup/r
 ### Konkrete Tasks
 - Define OpenAPI for `/relay/echo` submit/read contracts.
 - Add DB migration for `echo_messages` with metadata minimization.
-- Add schema constraint notes in `schema.sql` (ciphertext required, plaintext columns forbidden).
+- Add schema constraint notes in `schema.sql` (ciphertext required, plaintext columns forbidden, max `65536` bytes).
 - Add CI assertion to fail on plaintext echo columns/fields.
 
 ### Deliverables
@@ -52,6 +59,8 @@ Scope lock: **Encrypted Echo only**. No multi-user messaging, no session setup/r
 - OpenAPI validation (errors=0).
 - Migration reproducibility.
 - Negative schema test: plaintext echo column insertion attempt fails.
+- Duplicate submit test: same `(wid, device_id, message_id)` returns `409` and no extra row.
+- Oversize payload test: `65537` bytes rejected deterministically.
 
 ### Gate am Tagesende
 - Echo storage path exists and structurally enforces ciphertext-only model.
@@ -62,7 +71,7 @@ Scope lock: **Encrypted Echo only**. No multi-user messaging, no session setup/r
 
 ### Konkrete Tasks
 - Implement `RelayEchoController` and service methods for submit/read.
-- Enforce max payload size and strict envelope validation.
+- Enforce max payload size (`65536`) and strict envelope validation.
 - Enforce no transform pass-through semantics for ciphertext fields.
 - Wire policy guard annotation for mutating echo submit endpoint.
 
@@ -119,7 +128,7 @@ Scope lock: **Encrypted Echo only**. No multi-user messaging, no session setup/r
 ### Tests (müssen grün sein)
 - Replay attempt test (`message_id` reuse handling deterministic).
 - Log exfiltration regression test (ciphertext/tokens not logged).
-- Large payload rejected deterministically.
+- Large payload (`>65536`) rejected deterministically.
 
 ### Gate am Tagesende
 - Echo path resilient against replay/leakage/oversize abuse.

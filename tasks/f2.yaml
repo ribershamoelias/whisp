@@ -23,6 +23,12 @@ owners:
     role: Tech Lead
 
 global_constraints:
+  - id: F2-HC-001
+    rule: "Hard Constraint - Non-Negotiable: Replay is blocked; duplicate echo submit must return 409 with no state mutation."
+  - id: F2-HC-002
+    rule: "Hard Constraint - Non-Negotiable: message_id is unique per (wid, device_id), enforced at DB level."
+  - id: F2-HC-003
+    rule: "Hard Constraint - Non-Negotiable: Maximum ciphertext payload is 65536 bytes and must be enforced at API, DTO, and DB layers."
   - id: F2-GC-001
     rule: Server stores ciphertext only; plaintext persistence is forbidden.
   - id: F2-GC-002
@@ -44,9 +50,9 @@ gate_catalog:
   - id: relay_transparent_transport
     description: Relay returns exact ciphertext envelope without transformation.
   - id: replay_control_active
-    description: Duplicate echo submissions are deterministically handled.
+    description: Duplicate echo submissions return 409 Conflict and produce no state mutation.
   - id: payload_limits_enforced
-    description: Oversized payloads are rejected predictably.
+    description: Payloads larger than 65536 bytes are rejected predictably across API, DTO, and DB layers.
   - id: openapi_validated
     description: OpenAPI lint has zero errors.
   - id: relay_coverage_target_met
@@ -256,7 +262,9 @@ epics:
           - integration_tests
         definition_of_done:
           - unique_index_created
-          - duplicate_insert_handled
+          - unique_constraint_scope_is_wid_device_message_id
+          - duplicate_insert_maps_to_409
+          - duplicate_insert_has_no_side_effects
           - integration_test_pass
         gate_checks:
           - replay_control_active
@@ -293,6 +301,9 @@ epics:
           - code
           - integration_tests
         definition_of_done:
+          - api_body_limit_set_to_65536
+          - dto_limit_set_to_65536
+          - db_check_constraint_set_to_65536
           - oversize_requests_rejected
           - status_code_deterministic
           - integration_test_pass
