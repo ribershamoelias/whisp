@@ -68,12 +68,16 @@ CREATE TABLE refresh_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   wid UUID NOT NULL REFERENCES users(wid) ON DELETE CASCADE,
   device_id TEXT NOT NULL,
+  family_id UUID NOT NULL,
   jti UUID NOT NULL,
-  parent_jti UUID,
+  parent_jti UUID REFERENCES refresh_tokens(jti) ON DELETE SET NULL,
+  refresh_token_hash TEXT NOT NULL CHECK (refresh_token_hash LIKE '$argon2id$%'),
   revoked BOOLEAN NOT NULL DEFAULT FALSE,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (jti)
+  UNIQUE (jti),
+  UNIQUE (wid, device_id, family_id, jti)
 );
 
 CREATE INDEX idx_refresh_tokens_wid_device ON refresh_tokens(wid, device_id);
+CREATE INDEX idx_refresh_active ON refresh_tokens(wid, device_id) WHERE revoked = false;

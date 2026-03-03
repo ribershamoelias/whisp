@@ -37,7 +37,7 @@ describe('Log redaction (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/refresh')
       .set('authorization', 'Bearer redaction-test-token')
-      .send({ wid: 'wid-1', refresh_token: 'refresh-redaction-value' })
+      .send({ wid: 'wid-1', refresh_token_value: 'refresh-redaction-value' })
       .expect(201);
 
     const logBody = sink.lines.join('\n');

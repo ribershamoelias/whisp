@@ -17,7 +17,7 @@ export class SafeLogger {
   private readonly blockedKeys = new Set([
     'authorization',
     'access_token',
-    'refresh_token',
+    'refresh_token_value',
     'ciphertext_blob',
     'private_key',
     'identity_key',

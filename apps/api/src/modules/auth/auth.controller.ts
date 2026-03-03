@@ -14,8 +14,8 @@ export class AuthController {
 
   @Post('refresh')
   @RequiresPolicy('AUTH_REFRESH', { actor: 'wid' })
-  refresh(@Body() body: { wid: string; refresh_token: string }): Promise<AuthTokens> {
-    return this.authService.refresh(body.refresh_token);
+  refresh(@Body() body: { wid: string; refresh_token_value: string }): Promise<AuthTokens> {
+    return this.authService.refresh(body.refresh_token_value);
   }
 
   @Post('logout')

@@ -26,6 +26,6 @@ describe('App (e2e)', () => {
       .expect(201);
 
     expect(response.body.access_token).toBeDefined();
-    expect(response.body.refresh_token).toBeDefined();
+    expect(response.body.refresh_token_value).toBeDefined();
   });
 });

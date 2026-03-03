@@ -39,11 +39,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [wid, refresh_token]
+              required: [wid, refresh_token_value]
               properties:
                 wid:
                   type: string
-                refresh_token:
+                refresh_token_value:
                   type: string
       responses:
         '200':
@@ -360,11 +360,11 @@ components:
   schemas:
     AuthTokens:
       type: object
-      required: [access_token, refresh_token]
+      required: [access_token, refresh_token_value]
       properties:
         access_token:
           type: string
-        refresh_token:
+        refresh_token_value:
           type: string
     DeviceRegistration:
       type: object

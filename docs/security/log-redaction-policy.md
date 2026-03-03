@@ -19,7 +19,7 @@ Applies to API logs, tracing events, error payloads, queue logs, and CI test log
 
 ## Mandatory Redaction Patterns
 - `Authorization: Bearer <token>` -> `Authorization: Bearer [REDACTED]`
-- `refresh_token` -> `[REDACTED]`
+- `refresh_token_value` -> `[REDACTED]`
 - `access_token` -> `[REDACTED]`
 - `ciphertext_blob` -> `[REDACTED_CIPHERTEXT]`
 - `private_key`, `identity_key`, `prekey` -> `[REDACTED_KEY_MATERIAL]`
