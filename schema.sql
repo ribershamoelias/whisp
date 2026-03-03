@@ -91,3 +91,37 @@ CREATE TABLE refresh_tokens (
 
 CREATE INDEX idx_refresh_tokens_wid_device ON refresh_tokens(wid, device_id);
 CREATE INDEX idx_refresh_active ON refresh_tokens(wid, device_id) WHERE revoked = false;
+
+CREATE TABLE identity_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  wid UUID NOT NULL REFERENCES users(wid) ON DELETE CASCADE,
+  device_id TEXT NOT NULL,
+  identity_public_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (wid, device_id)
+);
+
+CREATE TABLE signed_prekeys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  wid UUID NOT NULL REFERENCES users(wid) ON DELETE CASCADE,
+  device_id TEXT NOT NULL,
+  signed_prekey_id BIGINT NOT NULL,
+  signed_prekey_public TEXT NOT NULL,
+  signature TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (wid, device_id, signed_prekey_id)
+);
+
+CREATE TABLE one_time_prekeys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  wid UUID NOT NULL REFERENCES users(wid) ON DELETE CASCADE,
+  device_id TEXT NOT NULL,
+  prekey_id BIGINT NOT NULL,
+  public_key TEXT NOT NULL,
+  used BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (wid, device_id, prekey_id)
+);
+
+CREATE INDEX idx_one_time_prekeys_wid_device_used
+  ON one_time_prekeys(wid, device_id, used);

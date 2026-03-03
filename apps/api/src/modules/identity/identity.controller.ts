@@ -6,10 +6,14 @@ import {
   PublicKeyBundle,
   RegisterIdentityInput
 } from './identity.service';
+import { PrekeyBundleFetchOutput, PrekeyBundleService } from './prekey-bundle.service';
 
 @Controller('identity')
 export class IdentityController {
-  constructor(private readonly identityService: IdentityService) {}
+  constructor(
+    private readonly identityService: IdentityService,
+    private readonly prekeyBundleService: PrekeyBundleService
+  ) {}
 
   @Post('register')
   @RequiresPolicy('IDENTITY_REGISTER', { actor: 'wid' })
@@ -50,5 +54,19 @@ export class IdentityController {
   @RequiresPolicy('IDENTITY_BLOCK_REMOVE', { actor: 'wid', target: 'target_wid' })
   unblock(@Param('target_wid') targetWid: string, @Body() body: { wid: string }): Promise<void> {
     return this.identityService.unblock(body.wid, targetWid);
+  }
+
+  @Post('prekey-bundle')
+  @RequiresPolicy('IDENTITY_PREKEY_UPLOAD', { actor: 'wid' })
+  uploadPrekeyBundle(@Body() body: unknown): Promise<void> {
+    return this.prekeyBundleService.uploadBundle(body);
+  }
+
+  @Get('prekey-bundle/:wid/:device_id')
+  fetchPrekeyBundle(
+    @Param('wid') wid: string,
+    @Param('device_id') deviceId: string
+  ): Promise<PrekeyBundleFetchOutput> {
+    return this.prekeyBundleService.fetchBundleAndConsumeOneTimePrekey(wid, deviceId);
   }
 }

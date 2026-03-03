@@ -17,9 +17,9 @@ done
 
 docker compose exec -T postgres psql -U whisp -d whisp -v ON_ERROR_STOP=1 -f /schema.sql >/tmp/migration_apply.log
 
-required_count=$(docker compose exec -T postgres psql -U whisp -d whisp -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','devices','spaces','memberships','messages','echo_messages','requests','blocks','refresh_tokens');")
-if [[ "${required_count}" != "9" ]]; then
-  echo "Migration verification failed: expected 9 required tables, got ${required_count}"
+required_count=$(docker compose exec -T postgres psql -U whisp -d whisp -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','devices','spaces','memberships','messages','echo_messages','requests','blocks','refresh_tokens','identity_keys','signed_prekeys','one_time_prekeys');")
+if [[ "${required_count}" != "12" ]]; then
+  echo "Migration verification failed: expected 12 required tables, got ${required_count}"
   exit 1
 fi
 
@@ -52,6 +52,33 @@ fi
 plaintext_column_count=$(docker compose exec -T postgres psql -U whisp -d whisp -t -A -c "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='echo_messages' AND column_name ILIKE '%plaintext%';")
 if [[ "${plaintext_column_count}" != "0" ]]; then
   echo "Echo schema guard failed: plaintext column detected in echo_messages"
+  exit 1
+fi
+
+for prekey_table in identity_keys signed_prekeys one_time_prekeys; do
+  forbidden_col_count=$(docker compose exec -T postgres psql -U whisp -d whisp -t -A -c "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='${prekey_table}' AND (column_name ILIKE '%private%' OR column_name ILIKE '%secret%' OR column_name ILIKE '%shared%' OR column_name ILIKE '%ratchet%');")
+  if [[ "${forbidden_col_count}" != "0" ]]; then
+    echo "Prekey schema guard failed: forbidden sensitive column detected in ${prekey_table}"
+    exit 1
+  fi
+done
+
+docker compose exec -T postgres psql -U whisp -d whisp -v ON_ERROR_STOP=1 -c "INSERT INTO identity_keys(wid, device_id, identity_public_key) VALUES ('00000000-0000-0000-0000-000000000001','device-A','identity-pub-A');" >/tmp/prekey_identity_insert.log
+docker compose exec -T postgres psql -U whisp -d whisp -v ON_ERROR_STOP=1 -c "INSERT INTO signed_prekeys(wid, device_id, signed_prekey_id, signed_prekey_public, signature) VALUES ('00000000-0000-0000-0000-000000000001','device-A',1,'signed-prekey-pub-1','sig-1');" >/tmp/prekey_signed_insert.log
+docker compose exec -T postgres psql -U whisp -d whisp -v ON_ERROR_STOP=1 -c "INSERT INTO one_time_prekeys(wid, device_id, prekey_id, public_key) VALUES ('00000000-0000-0000-0000-000000000001','device-A',100,'opk-pub-100');" >/tmp/prekey_opk_insert.log
+
+set +e
+docker compose exec -T postgres psql -U whisp -d whisp -v ON_ERROR_STOP=1 -c "INSERT INTO one_time_prekeys(wid, device_id, prekey_id, public_key) VALUES ('00000000-0000-0000-0000-000000000001','device-A',100,'opk-pub-duplicate');" >/tmp/prekey_opk_duplicate.log 2>&1
+prekey_duplicate_status=$?
+set -e
+if [[ ${prekey_duplicate_status} -eq 0 ]]; then
+  echo "PreKey uniqueness guard failed: duplicate (wid, device_id, prekey_id) accepted"
+  exit 1
+fi
+
+unused_default_count=$(docker compose exec -T postgres psql -U whisp -d whisp -t -A -c "SELECT count(*) FROM one_time_prekeys WHERE wid='00000000-0000-0000-0000-000000000001' AND device_id='device-A' AND prekey_id=100 AND used=false;")
+if [[ "${unused_default_count}" != "1" ]]; then
+  echo "PreKey default used flag guard failed"
   exit 1
 fi
 

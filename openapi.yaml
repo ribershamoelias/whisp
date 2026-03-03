@@ -192,6 +192,49 @@ paths:
       responses:
         '204':
           description: Unblocked
+  /identity/prekey-bundle:
+    post:
+      tags: [identity]
+      summary: Upload per-device prekey bundle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrekeyBundleUpload'
+      responses:
+        '201':
+          description: Bundle stored
+        '400':
+          description: Invalid bundle payload
+        '409':
+          description: Duplicate bundle or immutable key violation
+  /identity/prekey-bundle/{wid}/{device_id}:
+    get:
+      tags: [identity]
+      summary: Fetch prekey bundle and atomically consume one-time prekey
+      parameters:
+        - in: path
+          name: wid
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: device_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bundle with consumed one-time prekey
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrekeyBundleFetch'
+        '400':
+          description: Bundle not found or invalid request
+        '409':
+          description: No unused one-time prekeys available
 
   /spaces:
     post:
@@ -560,3 +603,54 @@ components:
         created_at:
           type: string
           format: date-time
+    SignedPrekey:
+      type: object
+      required: [signed_prekey_id, signed_prekey_public, signature]
+      properties:
+        signed_prekey_id:
+          type: integer
+          minimum: 1
+        signed_prekey_public:
+          type: string
+        signature:
+          type: string
+    OneTimePrekey:
+      type: object
+      required: [prekey_id, public_key]
+      properties:
+        prekey_id:
+          type: integer
+          minimum: 1
+        public_key:
+          type: string
+    PrekeyBundleUpload:
+      type: object
+      required: [wid, device_id, identity_key, signed_prekey, one_time_prekeys]
+      properties:
+        wid:
+          type: string
+        device_id:
+          type: string
+        identity_key:
+          type: string
+        signed_prekey:
+          $ref: '#/components/schemas/SignedPrekey'
+        one_time_prekeys:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OneTimePrekey'
+    PrekeyBundleFetch:
+      type: object
+      required: [wid, device_id, identity_key, signed_prekey, one_time_prekey]
+      properties:
+        wid:
+          type: string
+        device_id:
+          type: string
+        identity_key:
+          type: string
+        signed_prekey:
+          $ref: '#/components/schemas/SignedPrekey'
+        one_time_prekey:
+          $ref: '#/components/schemas/OneTimePrekey'
