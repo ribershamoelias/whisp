@@ -1,0 +1,340 @@
+version: 1
+project: WHISP
+roadmap: phase3
+phase: F3
+name: Signal 1to1 PreKey and Session Security
+
+defaults:
+  estimate_unit: d
+  task_status: planned
+
+owners:
+  backend:
+    role: Backend Engineer
+  flutter:
+    role: Flutter Engineer
+  security:
+    role: Security Engineer
+  devops:
+    role: DevOps Engineer
+  qa:
+    role: QA Engineer
+  techlead:
+    role: Tech Lead
+
+global_constraints:
+  - id: F3-HC-001
+    rule: "Hard Constraint - Non-Negotiable: Only 1:1 Signal PreKey flow in F3."
+  - id: F3-HC-002
+    rule: "Hard Constraint - Non-Negotiable: No groups, sender keys, MLS, media, presence, typing in F3."
+  - id: F3-HC-003
+    rule: "Hard Constraint - Non-Negotiable: Use established libsignal-compatible implementation; no custom crypto."
+  - id: F3-HC-004
+    rule: "Hard Constraint - Non-Negotiable: Server may not decrypt, derive secrets, or store ratchet state."
+  - id: F3-HC-005
+    rule: "Hard Constraint - Non-Negotiable: Multi-device model is per-device identity keypair and per-device sessions."
+
+gate_catalog:
+  - id: prekey_replay_blocked
+    description: One-time prekey cannot be consumed more than once.
+  - id: bundle_signature_verified
+    description: Signed prekey verification enforced on client.
+  - id: identity_key_change_fail_closed
+    description: Identity key changes trigger deterministic fail-closed behavior.
+  - id: cross_device_isolation
+    description: Sessions are device-addressed and isolated.
+  - id: ratchet_state_client_only
+    description: Ratchet state exists only on device.
+  - id: no_server_crypto
+    description: CI enforces no server-side signal/crypto logic beyond storage/relay responsibilities.
+  - id: scope_no_group_guarantee
+    description: CI blocks group/MLS/media scope drift.
+  - id: openapi_validated
+    description: OpenAPI lint has zero errors.
+  - id: session_coverage_target_met
+    description: Session/prekey modules have >=90% line and branch coverage.
+
+evidence_standards:
+  required_artifacts:
+    - CI run URL
+    - test report artifact
+    - security regression report
+    - openapi diff and lint output
+    - migration apply report
+    - manual adversarial checklist
+
+security_regression_tasks:
+  - id: F3-SR-1
+    title: Add prekey replay attack regression
+    owner: security
+    estimate: 0.5d
+    dependencies: [F3-T5]
+    deliverables: [integration_test]
+    definition_of_done:
+      - replay_rejected_deterministically
+      - no_double_consume
+      - tests_pass
+    gate_checks: [prekey_replay_blocked]
+    evidence_required: [ci_run_url, test_report]
+  - id: F3-SR-2
+    title: Add fake bundle injection regression
+    owner: security
+    estimate: 0.5d
+    dependencies: [F3-T9]
+    deliverables: [integration_test]
+    definition_of_done:
+      - invalid_signature_rejected
+      - session_not_created
+      - tests_pass
+    gate_checks: [bundle_signature_verified]
+    evidence_required: [ci_run_url, test_report]
+  - id: F3-SR-3
+    title: Add identity key change fail-closed regression
+    owner: security
+    estimate: 0.5d
+    dependencies: [F3-T12]
+    deliverables: [integration_test]
+    definition_of_done:
+      - key_change_detected
+      - send_blocked_until_trust_reset
+      - tests_pass
+    gate_checks: [identity_key_change_fail_closed]
+    evidence_required: [ci_run_url, test_report]
+  - id: F3-SR-4
+    title: Add downgrade attack regression (echo mode blocked in signal route)
+    owner: security
+    estimate: 0.5d
+    dependencies: [F3-T11]
+    deliverables: [integration_test]
+    definition_of_done:
+      - downgrade_request_rejected
+      - deterministic_error_path
+      - tests_pass
+    gate_checks: [scope_no_group_guarantee]
+    evidence_required: [ci_run_url, test_report]
+
+ci_gate_tasks:
+  - id: F3-CI-1
+    title: Add CI scope-drift guard for group/MLS/media endpoints
+    owner: devops
+    estimate: 0.5d
+    dependencies: []
+    deliverables: [ci_script, ci_config]
+    definition_of_done:
+      - group_mls_media_patterns_blocked
+      - pipeline_fails_on_violation
+      - script_documented
+    gate_checks: [scope_no_group_guarantee]
+    evidence_required: [ci_run_url, script_output]
+  - id: F3-CI-2
+    title: Add CI guard that blocks server-side signal/crypto session code
+    owner: devops
+    estimate: 0.5d
+    dependencies: []
+    deliverables: [ci_script, ci_config]
+    definition_of_done:
+      - forbidden_import_patterns_blocked
+      - relay_prekey_modules_enforced
+      - script_documented
+    gate_checks: [no_server_crypto]
+    evidence_required: [ci_run_url, script_output]
+  - id: F3-CI-3
+    title: Enforce session/prekey coverage threshold gate
+    owner: devops
+    estimate: 0.5d
+    dependencies: [F3-T11]
+    deliverables: [ci_config]
+    definition_of_done:
+      - threshold_gte_90_line_branch
+      - ci_fails_on_breach
+    gate_checks: [session_coverage_target_met]
+    evidence_required: [ci_run_url, coverage_report]
+
+epics:
+  - id: F3-E1
+    name: PreKey Storage and APIs
+    owner: backend
+    tasks:
+      - id: F3-T1
+        title: Add prekey tables for identity keys, signed prekeys, one-time prekeys
+        owner: backend
+        estimate: 1d
+        dependencies: []
+        deliverables: [migration, schema_update]
+        definition_of_done:
+          - migration_apply_pass
+          - migration_rollback_pass
+          - schema_sql_updated
+        gate_checks: [prekey_replay_blocked]
+        evidence_required: [migration_report, ci_run_url]
+      - id: F3-T2
+        title: Implement prekey upload endpoint per device
+        owner: backend
+        estimate: 0.5d
+        dependencies: [F3-T1]
+        deliverables: [code, unit_tests, openapi_update]
+        definition_of_done:
+          - payload_validation_enforced
+          - openapi_validated
+          - tests_pass
+        gate_checks: [openapi_validated]
+        evidence_required: [openapi_diff, ci_run_url]
+      - id: F3-T3
+        title: Implement prekey bundle fetch endpoint by wid and device_id
+        owner: backend
+        estimate: 0.5d
+        dependencies: [F3-T1]
+        deliverables: [code, integration_tests, openapi_update]
+        definition_of_done:
+          - bundle_shape_stable
+          - no_private_key_fields
+          - tests_pass
+        gate_checks: [openapi_validated]
+        evidence_required: [openapi_diff, test_report]
+      - id: F3-T4
+        title: Implement atomic one-time prekey consume transaction
+        owner: backend
+        estimate: 1d
+        dependencies: [F3-T1, F3-T3]
+        deliverables: [code, integration_tests]
+        definition_of_done:
+          - consume_is_atomic
+          - duplicate_consume_rejected
+          - tests_pass
+        gate_checks: [prekey_replay_blocked]
+        evidence_required: [ci_run_url, test_report]
+      - id: F3-T5
+        title: Map duplicate prekey consume to deterministic API error
+        owner: backend
+        estimate: 0.5d
+        dependencies: [F3-T4]
+        deliverables: [code, integration_tests]
+        definition_of_done:
+          - deterministic_error_code
+          - no_partial_side_effects
+          - tests_pass
+        gate_checks: [prekey_replay_blocked]
+        evidence_required: [test_report]
+
+  - id: F3-E2
+    name: Client Key Lifecycle and Verification
+    owner: flutter
+    tasks:
+      - id: F3-T6
+        title: Add native libsignal wrapper boundary in mobile core
+        owner: flutter
+        estimate: 1d
+        dependencies: []
+        deliverables: [code, interface_doc]
+        definition_of_done:
+          - wrapper_api_stable
+          - no_custom_crypto_code
+          - lint_clean
+        gate_checks: [ratchet_state_client_only]
+        evidence_required: [code_refs]
+      - id: F3-T7
+        title: Generate and persist per-device identity keypair in secure storage
+        owner: flutter
+        estimate: 1d
+        dependencies: [F3-T6]
+        deliverables: [code, unit_tests]
+        definition_of_done:
+          - keypair_per_device
+          - key_material_not_logged
+          - tests_pass
+        gate_checks: [cross_device_isolation]
+        evidence_required: [test_report]
+      - id: F3-T8
+        title: Generate signed prekey and one-time prekey batch per device
+        owner: flutter
+        estimate: 1d
+        dependencies: [F3-T6, F3-T7]
+        deliverables: [code, unit_tests]
+        definition_of_done:
+          - signed_prekey_generated
+          - opk_batch_generated
+          - tests_pass
+        gate_checks: [bundle_signature_verified]
+        evidence_required: [test_report]
+      - id: F3-T9
+        title: Verify signed prekey signature and identity key on bundle fetch
+        owner: flutter
+        estimate: 1d
+        dependencies: [F3-T8, F3-T3]
+        deliverables: [code, unit_tests, integration_tests]
+        definition_of_done:
+          - invalid_signature_fail_closed
+          - unknown_identity_policy_defined
+          - tests_pass
+        gate_checks: [bundle_signature_verified]
+        evidence_required: [test_report]
+
+  - id: F3-E3
+    name: Session Bootstrap and Ratchet
+    owner: flutter
+    tasks:
+      - id: F3-T10
+        title: Implement X3DH sender-side session bootstrap
+        owner: flutter
+        estimate: 1d
+        dependencies: [F3-T9]
+        deliverables: [code, unit_tests]
+        definition_of_done:
+          - shared_secret_derivation_via_library
+          - session_state_initialized
+          - tests_pass
+        gate_checks: [ratchet_state_client_only]
+        evidence_required: [test_report]
+      - id: F3-T11
+        title: Implement first 1:1 prekey message send and receive decrypt flow
+        owner: flutter
+        estimate: 1d
+        dependencies: [F3-T10, F3-T4]
+        deliverables: [code, integration_tests]
+        definition_of_done:
+          - first_message_decrypts
+          - wrong_device_cannot_decrypt
+          - tests_pass
+        gate_checks: [cross_device_isolation, prekey_replay_blocked]
+        evidence_required: [ci_run_url, test_report]
+      - id: F3-T12
+        title: Implement identity key change detection and trust reset requirement
+        owner: flutter
+        estimate: 0.5d
+        dependencies: [F3-T11]
+        deliverables: [code, integration_tests]
+        definition_of_done:
+          - key_change_detected
+          - messaging_blocked_until_reset
+          - tests_pass
+        gate_checks: [identity_key_change_fail_closed]
+        evidence_required: [test_report]
+      - id: F3-T13
+        title: Implement ratchet state persistence and anti-rollback marker
+        owner: flutter
+        estimate: 1d
+        dependencies: [F3-T11]
+        deliverables: [code, integration_tests]
+        definition_of_done:
+          - ratchet_state_persisted_per_peer_device
+          - rollback_detection_enforced
+          - tests_pass
+        gate_checks: [ratchet_state_client_only]
+        evidence_required: [test_report]
+
+phase_gate:
+  required_checks:
+    - prekey_replay_blocked
+    - bundle_signature_verified
+    - identity_key_change_fail_closed
+    - cross_device_isolation
+    - ratchet_state_client_only
+    - no_server_crypto
+    - scope_no_group_guarantee
+    - session_coverage_target_met
+    - openapi_validated
+  stop_conditions:
+    - One-time prekey can be consumed more than once.
+    - Identity key mismatch does not fail closed.
+    - Any group/MLS/media change appears in F3 scope.
+    - Any server-side session crypto logic is introduced.
