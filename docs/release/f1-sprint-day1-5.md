@@ -69,29 +69,29 @@ Scope lock: **Identity/Auth/Block only**. No Messaging, no Spaces, no Permission
 - Reuse-Detection + Family-Handling finalisieren.
 
 ### Konkrete Tasks
-- [ ] Rotation in einer DB-Transaktion (revoke + insert + commit/rollback).
-- [ ] Per-device family chain implementieren.
-- [ ] Reuse-Detection mit Family-Invalidation (device-spezifisch).
-- [ ] Constant-time compare für Hash-Validierung verwenden.
+- [x] Rotation in einer DB-Transaktion (revoke + insert + commit/rollback).
+- [x] Per-device family chain implementieren.
+- [x] Reuse-Detection mit Family-Invalidation (device-spezifisch).
+- [x] Constant-time compare für Hash-Validierung verwenden.
 
 ### Deliverables
-- [ ] Transaktionale Rotation im AuthService.
-- [ ] Reuse/Familienlogik dokumentiert und getestet.
+- [x] Transaktionale Rotation im AuthService.
+- [x] Reuse/Familienlogik dokumentiert und getestet.
 
 ### Tests (müssen grün sein)
-- [ ] Refresh reuse attack.
-- [ ] Token replay after rotation.
-- [ ] Family compromise test.
-- [ ] **Atomicity rollback simulation:** Fehler zwischen revoke und insert führt zu vollständigem rollback (keine Token-Lücke).
+- [x] Refresh reuse attack.
+- [x] Token replay after rotation.
+- [x] Family compromise test.
+- [x] **Atomicity rollback simulation:** Fehler zwischen revoke und insert führt zu vollständigem rollback (keine Token-Lücke).
 
 ### Gate am Tagesende
-- [ ] Takeover-Schutz aktiv und atomar nachgewiesen.
+- [x] Takeover-Schutz aktiv und atomar nachgewiesen.
 
 ### Daily Sign-off
-- Commit Hash:
-- CI Run Link:
-- Reviewer:
-- Reviewer Sign-off: [ ] PASS  [ ] FAIL
+- Commit Hash: `be8437b`
+- CI Run Link: `https://github.com/ribershamoelias/whisp/actions/runs/22643042338`
+- Reviewer: `Codex (Implementation), Pending external lead review`
+- Reviewer Sign-off: [x] PASS  [ ] FAIL
 
 ---
 
