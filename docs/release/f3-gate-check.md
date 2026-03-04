@@ -6,6 +6,9 @@
 - Reviewer: `Tech Lead / Security Lead`
 - Threat Model Version: `v2-f3-1to1-prekey`
 - Build Plan: `docs/release/f3-build-plan.md`
+- Implementation Commit: `e478317697b9fcc452e47859577884e2ddae11ac`
+- CI Run: `22663703552`
+- CI URL: `https://github.com/ribershamoelias/whisp/actions/runs/22663703552`
 
 ## Gate Matrix
 | Gate-ID | Beschreibung | Status | Evidenz | Reviewer Kommentar |
