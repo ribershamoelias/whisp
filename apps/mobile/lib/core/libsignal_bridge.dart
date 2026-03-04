@@ -40,6 +40,16 @@ class OneTimePreKeyMaterial {
   final String privateKeyBase64;
 }
 
+class SessionInitiationMaterial {
+  const SessionInitiationMaterial({
+    required this.sessionKeyBase64,
+    required this.initiatorEphemeralPublicBase64,
+  });
+
+  final String sessionKeyBase64;
+  final String initiatorEphemeralPublicBase64;
+}
+
 abstract class LibsignalBridge {
   Future<SignalKeyPair> createIdentityKeyPair();
   Future<SignedPreKeyMaterial> createSignedPreKey({
@@ -53,6 +63,31 @@ abstract class LibsignalBridge {
     required String signedPreKeyPublicBase64,
     required String signatureBase64,
   });
+  Future<SessionInitiationMaterial> createInitiatorSessionMaterial({
+    required String initiatorIdentityPublicKeyBase64,
+    required String responderIdentityPublicKeyBase64,
+    required String responderSignedPreKeyPublicBase64,
+    required int responderOneTimePreKeyId,
+    required String responderOneTimePreKeyPublicBase64,
+  });
+  Future<String> createResponderSessionKey({
+    required String initiatorIdentityPublicKeyBase64,
+    required String initiatorEphemeralPublicBase64,
+    required String responderIdentityPublicKeyBase64,
+    required String responderSignedPreKeyPublicBase64,
+    required int responderOneTimePreKeyId,
+    required String responderOneTimePreKeyPublicBase64,
+  });
+  Future<String> encryptWithSessionKey({
+    required String sessionKeyBase64,
+    required String plaintext,
+    required String aad,
+  });
+  Future<String> decryptWithSessionKey({
+    required String sessionKeyBase64,
+    required String payloadBase64,
+    required String aad,
+  });
 }
 
 class NativeLibsignalBridge implements LibsignalBridge {
@@ -60,6 +95,8 @@ class NativeLibsignalBridge implements LibsignalBridge {
 
   final Random _random;
   final SignatureAlgorithm _signatureAlgorithm = Ed25519();
+  final Cipher _cipher = AesGcm.with256bits();
+  final HashAlgorithm _hash = Sha256();
 
   @override
   Future<SignalKeyPair> createIdentityKeyPair() async {
@@ -133,6 +170,121 @@ class NativeLibsignalBridge implements LibsignalBridge {
       signedPreKeyPublicBase64.fromBase64(),
       signature: signature,
     );
+  }
+
+  @override
+  Future<SessionInitiationMaterial> createInitiatorSessionMaterial({
+    required String initiatorIdentityPublicKeyBase64,
+    required String responderIdentityPublicKeyBase64,
+    required String responderSignedPreKeyPublicBase64,
+    required int responderOneTimePreKeyId,
+    required String responderOneTimePreKeyPublicBase64,
+  }) async {
+    final ephemeral = _randomBytes(32).toBase64();
+    final sessionKey = await _deriveSessionKeyBase64(
+      initiatorIdentityPublicKeyBase64: initiatorIdentityPublicKeyBase64,
+      initiatorEphemeralPublicBase64: ephemeral,
+      responderIdentityPublicKeyBase64: responderIdentityPublicKeyBase64,
+      responderSignedPreKeyPublicBase64: responderSignedPreKeyPublicBase64,
+      responderOneTimePreKeyId: responderOneTimePreKeyId,
+      responderOneTimePreKeyPublicBase64: responderOneTimePreKeyPublicBase64,
+    );
+    return SessionInitiationMaterial(
+      sessionKeyBase64: sessionKey,
+      initiatorEphemeralPublicBase64: ephemeral,
+    );
+  }
+
+  @override
+  Future<String> createResponderSessionKey({
+    required String initiatorIdentityPublicKeyBase64,
+    required String initiatorEphemeralPublicBase64,
+    required String responderIdentityPublicKeyBase64,
+    required String responderSignedPreKeyPublicBase64,
+    required int responderOneTimePreKeyId,
+    required String responderOneTimePreKeyPublicBase64,
+  }) {
+    return _deriveSessionKeyBase64(
+      initiatorIdentityPublicKeyBase64: initiatorIdentityPublicKeyBase64,
+      initiatorEphemeralPublicBase64: initiatorEphemeralPublicBase64,
+      responderIdentityPublicKeyBase64: responderIdentityPublicKeyBase64,
+      responderSignedPreKeyPublicBase64: responderSignedPreKeyPublicBase64,
+      responderOneTimePreKeyId: responderOneTimePreKeyId,
+      responderOneTimePreKeyPublicBase64: responderOneTimePreKeyPublicBase64,
+    );
+  }
+
+  @override
+  Future<String> encryptWithSessionKey({
+    required String sessionKeyBase64,
+    required String plaintext,
+    required String aad,
+  }) async {
+    final nonce = _randomBytes(12);
+    final secretBox = await _cipher.encrypt(
+      utf8.encode(plaintext),
+      secretKey: SecretKey(sessionKeyBase64.fromBase64()),
+      nonce: nonce,
+      aad: utf8.encode(aad),
+    );
+
+    final payload = <int>[
+      ...secretBox.nonce,
+      ...secretBox.cipherText,
+      ...secretBox.mac.bytes,
+    ];
+    return payload.toBase64();
+  }
+
+  @override
+  Future<String> decryptWithSessionKey({
+    required String sessionKeyBase64,
+    required String payloadBase64,
+    required String aad,
+  }) async {
+    final payload = payloadBase64.fromBase64();
+    if (payload.length < 12 + 16) {
+      throw const FormatException('invalid session payload');
+    }
+    final nonce = payload.sublist(0, 12);
+    final macStart = payload.length - 16;
+    final ciphertext = payload.sublist(12, macStart);
+    final mac = payload.sublist(macStart);
+    final clearBytes = await _cipher.decrypt(
+      SecretBox(ciphertext, nonce: nonce, mac: Mac(mac)),
+      secretKey: SecretKey(sessionKeyBase64.fromBase64()),
+      aad: utf8.encode(aad),
+    );
+    return utf8.decode(clearBytes);
+  }
+
+  Future<String> _deriveSessionKeyBase64({
+    required String initiatorIdentityPublicKeyBase64,
+    required String initiatorEphemeralPublicBase64,
+    required String responderIdentityPublicKeyBase64,
+    required String responderSignedPreKeyPublicBase64,
+    required int responderOneTimePreKeyId,
+    required String responderOneTimePreKeyPublicBase64,
+  }) async {
+    final transcript = [
+      initiatorIdentityPublicKeyBase64,
+      initiatorEphemeralPublicBase64,
+      responderIdentityPublicKeyBase64,
+      responderSignedPreKeyPublicBase64,
+      responderOneTimePreKeyId.toString(),
+      responderOneTimePreKeyPublicBase64,
+    ].join('|');
+    final digest = await _hash.hash(utf8.encode(transcript));
+    final keyBytes = digest.bytes.sublist(0, 32);
+    return keyBytes.toBase64();
+  }
+
+  Uint8List _randomBytes(int length) {
+    final bytes = Uint8List(length);
+    for (var i = 0; i < bytes.length; i++) {
+      bytes[i] = _random.nextInt(256);
+    }
+    return bytes;
   }
 }
 

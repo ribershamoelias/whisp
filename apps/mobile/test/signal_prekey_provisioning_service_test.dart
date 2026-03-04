@@ -76,6 +76,50 @@ class FakeLibsignalBridge implements LibsignalBridge {
     }
     return signatureBase64.startsWith('sig:');
   }
+
+  @override
+  Future<SessionInitiationMaterial> createInitiatorSessionMaterial({
+    required String initiatorIdentityPublicKeyBase64,
+    required String responderIdentityPublicKeyBase64,
+    required String responderSignedPreKeyPublicBase64,
+    required int responderOneTimePreKeyId,
+    required String responderOneTimePreKeyPublicBase64,
+  }) async {
+    return const SessionInitiationMaterial(
+      sessionKeyBase64: 'session-key',
+      initiatorEphemeralPublicBase64: 'ephemeral',
+    );
+  }
+
+  @override
+  Future<String> createResponderSessionKey({
+    required String initiatorIdentityPublicKeyBase64,
+    required String initiatorEphemeralPublicBase64,
+    required String responderIdentityPublicKeyBase64,
+    required String responderSignedPreKeyPublicBase64,
+    required int responderOneTimePreKeyId,
+    required String responderOneTimePreKeyPublicBase64,
+  }) async {
+    return 'session-key';
+  }
+
+  @override
+  Future<String> decryptWithSessionKey({
+    required String sessionKeyBase64,
+    required String payloadBase64,
+    required String aad,
+  }) async {
+    return payloadBase64;
+  }
+
+  @override
+  Future<String> encryptWithSessionKey({
+    required String sessionKeyBase64,
+    required String plaintext,
+    required String aad,
+  }) async {
+    return plaintext;
+  }
 }
 
 class FakePrekeyBundleRemoteDataSource implements PrekeyBundleRemoteDataSource {

@@ -119,13 +119,21 @@ class SignalPrekeyProvisioningService {
       throw IdentityVerificationException('identity key changed for ${bundle.wid}/${bundle.deviceId}');
     }
 
-    final signatureValid = await _libsignalBridge.verifySignedPreKey(
-      identityPublicKeyBase64: bundle.identityKey,
-      signedPreKeyPublicBase64: bundle.signedPreKeyPublic,
-      signatureBase64: bundle.signedPreKeySignature,
-    );
+    final signatureValid = await _verifySignedPrekeyFailClosed(bundle);
     if (!signatureValid) {
       throw IdentityVerificationException('invalid signed prekey signature');
+    }
+  }
+
+  Future<bool> _verifySignedPrekeyFailClosed(PeerPreKeyBundle bundle) async {
+    try {
+      return await _libsignalBridge.verifySignedPreKey(
+        identityPublicKeyBase64: bundle.identityKey,
+        signedPreKeyPublicBase64: bundle.signedPreKeyPublic,
+        signatureBase64: bundle.signedPreKeySignature,
+      );
+    } on Exception {
+      throw IdentityVerificationException('signed prekey verification failed');
     }
   }
 
