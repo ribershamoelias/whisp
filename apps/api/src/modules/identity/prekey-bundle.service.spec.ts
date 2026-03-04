@@ -107,11 +107,11 @@ describe('PrekeyBundleService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('rejects forbidden private field names', async () => {
+  it('rejects forbidden sensitive field names', async () => {
     await expect(
       service.uploadBundle({
         ...bundle,
-        private_key: 'forbidden'
+        client_secret_blob: 'forbidden'
       })
     ).rejects.toThrow(BadRequestException);
   });

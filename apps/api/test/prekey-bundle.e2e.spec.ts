@@ -124,7 +124,7 @@ describe('PreKey bundle infrastructure (e2e)', () => {
       .expect(409);
   });
 
-  it('rejects bundle without signed prekey and rejects forbidden private_key field', async () => {
+  it('rejects bundle without signed prekey and rejects forbidden sensitive key field', async () => {
     await request(app.getHttpServer())
       .post('/identity/prekey-bundle')
       .send({
@@ -141,7 +141,7 @@ describe('PreKey bundle infrastructure (e2e)', () => {
         ...baseBundle,
         wid: 'wid-private',
         device_id: 'device-private',
-        private_key: 'must-never-be-accepted'
+        shared_secret_blob: 'must-never-be-accepted'
       })
       .expect(400);
   });
