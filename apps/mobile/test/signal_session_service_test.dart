@@ -22,6 +22,12 @@ class InMemorySecureStorage implements SecureStorage {
   Future<void> write({required String key, required String value}) async {
     _store[key] = value;
   }
+
+  Future<void> writeRaw(String key, String value) async {
+    _store[key] = value;
+  }
+
+  String? readRaw(String key) => _store[key];
 }
 
 class FakePrekeyDirectory implements PrekeyBundleRemoteDataSource {
@@ -375,6 +381,116 @@ void main() {
           message: outgoing,
         ),
         throwsA(isA<SignalSessionException>()),
+      );
+    });
+
+    test('ratchet rollback attack is detected fail-closed', () async {
+      final first = await senderSessionService.initiateSessionAndEncryptFirstMessage(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-rollback-1',
+        plaintext: 'one',
+      );
+      await receiverSessionService.decryptFirstMessageAndEstablishSession(
+        localWid: 'wid-b',
+        localDeviceId: 'device-b1',
+        message: first,
+      );
+
+      const stateKey = 'signal:session-state:wid-b:device-b1:wid-a:device-a1';
+      final oldState = receiverStorage.readRaw(stateKey)!;
+
+      final second = await senderSessionService.encryptWithExistingSession(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-rollback-2',
+        plaintext: 'two',
+      );
+      final secondClear = await receiverSessionService.decryptIncomingMessage(
+        localWid: 'wid-b',
+        localDeviceId: 'device-b1',
+        peerWid: 'wid-a',
+        peerDeviceId: 'device-a1',
+        messageId: second.messageId,
+        ciphertextBase64: second.ciphertextBase64,
+        counter: second.counter,
+      );
+      expect(secondClear, equals('two'));
+
+      await receiverStorage.writeRaw(stateKey, oldState);
+
+      final third = await senderSessionService.encryptWithExistingSession(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-rollback-3',
+        plaintext: 'three',
+      );
+
+      await expectLater(
+        () => receiverSessionService.decryptIncomingMessage(
+          localWid: 'wid-b',
+          localDeviceId: 'device-b1',
+          peerWid: 'wid-a',
+          peerDeviceId: 'device-a1',
+          messageId: third.messageId,
+          ciphertextBase64: third.ciphertextBase64,
+          counter: third.counter,
+        ),
+        throwsA(isA<SessionDesyncException>()),
+      );
+    });
+
+    test('message key reuse is rejected on duplicate counter replay', () async {
+      final first = await senderSessionService.initiateSessionAndEncryptFirstMessage(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-reuse-1',
+        plaintext: 'one',
+      );
+      await receiverSessionService.decryptFirstMessageAndEstablishSession(
+        localWid: 'wid-b',
+        localDeviceId: 'device-b1',
+        message: first,
+      );
+
+      final second = await senderSessionService.encryptWithExistingSession(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-reuse-2',
+        plaintext: 'two',
+      );
+      final clear = await receiverSessionService.decryptIncomingMessage(
+        localWid: 'wid-b',
+        localDeviceId: 'device-b1',
+        peerWid: 'wid-a',
+        peerDeviceId: 'device-a1',
+        messageId: second.messageId,
+        ciphertextBase64: second.ciphertextBase64,
+        counter: second.counter,
+      );
+      expect(clear, equals('two'));
+
+      await expectLater(
+        () => receiverSessionService.decryptIncomingMessage(
+          localWid: 'wid-b',
+          localDeviceId: 'device-b1',
+          peerWid: 'wid-a',
+          peerDeviceId: 'device-a1',
+          messageId: second.messageId,
+          ciphertextBase64: second.ciphertextBase64,
+          counter: second.counter,
+        ),
+        throwsA(isA<SessionDesyncException>()),
       );
     });
   });

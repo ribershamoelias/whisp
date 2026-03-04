@@ -1,6 +1,6 @@
 # F3 Threat Model (1:1 PreKey / Double Ratchet)
 
-Version: `v1-f3-1to1-prekey`
+Version: `v2-f3-1to1-prekey`
 Phase: `F3`
 Scope: 1:1 Signal session setup and ratchet messaging
 Date: `2026-03-04`
@@ -86,6 +86,12 @@ flowchart LR
 - Cross-device confusion negative test.
 - Downgrade-to-echo rejection test.
 - State rollback detection test.
+- Message-key reuse rejection test.
+
+## Day 5 Hardening Notes
+- Ratchet rollback detection uses a monotonic per-session marker persisted outside serialized session state.
+- Message-counter replay (duplicate counter) is fail-closed and rejected as desync.
+- PreKey depletion remains deterministic (`409`) and does not trigger fallback/reuse.
 
 ## Residual Risks (Accepted for F3)
 - Operational prekey refill lag can temporarily reduce session availability.

@@ -353,7 +353,17 @@ class SignalSessionService {
         'missing session state for $localWid/$localDeviceId -> $peerWid/$peerDeviceId',
       );
     }
-    return _SessionState.fromJson(raw);
+    final state = _SessionState.fromJson(raw);
+    final markerRaw = await _secureStorage.read(
+      key: _sessionCounterMarkerKey(localWid, localDeviceId, peerWid, peerDeviceId),
+    );
+    final marker = int.tryParse(markerRaw ?? '0') ?? 0;
+    if (state.maxCounter < marker) {
+      throw SessionDesyncException(
+        'ratchet rollback detected for $localWid/$localDeviceId -> $peerWid/$peerDeviceId',
+      );
+    }
+    return state;
   }
 
   Future<void> _writeSessionState(
@@ -362,11 +372,16 @@ class SignalSessionService {
     String peerWid,
     String peerDeviceId,
     _SessionState state,
-  ) {
-    return _secureStorage.write(
+  ) async {
+    await _secureStorage.write(
       key: _sessionStateKey(localWid, localDeviceId, peerWid, peerDeviceId),
       value: state.toJson(),
     );
+    final markerKey = _sessionCounterMarkerKey(localWid, localDeviceId, peerWid, peerDeviceId);
+    final markerRaw = await _secureStorage.read(key: markerKey);
+    final marker = int.tryParse(markerRaw ?? '0') ?? 0;
+    final nextMarker = state.maxCounter > marker ? state.maxCounter : marker;
+    await _secureStorage.write(key: markerKey, value: nextMarker.toString());
   }
 
   Future<_DeviceMaterialSnapshot> _readDeviceMaterial(String wid, String deviceId) async {
@@ -411,6 +426,15 @@ class SignalSessionService {
     String peerDeviceId,
   ) {
     return 'signal:session-state:$localWid:$localDeviceId:$peerWid:$peerDeviceId';
+  }
+
+  String _sessionCounterMarkerKey(
+    String localWid,
+    String localDeviceId,
+    String peerWid,
+    String peerDeviceId,
+  ) {
+    return 'signal:session-marker:$localWid:$localDeviceId:$peerWid:$peerDeviceId';
   }
 
   String _aad(
@@ -475,6 +499,8 @@ class _SessionState {
   int sendCounter;
   int recvCounter;
   Map<int, String> skippedMessageKeys;
+
+  int get maxCounter => sendCounter > recvCounter ? sendCounter : recvCounter;
 
   String toJson() {
     return jsonEncode({
