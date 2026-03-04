@@ -205,6 +205,7 @@ void main() {
       final tamperedMessage = EncryptedSessionMessage(
         messageId: outgoing.messageId,
         ciphertextBase64: outgoing.ciphertextBase64,
+        counter: outgoing.counter,
         initEnvelope: SessionInitEnvelope(
           fromWid: outgoing.initEnvelope.fromWid,
           fromDeviceId: outgoing.initEnvelope.fromDeviceId,
@@ -226,6 +227,154 @@ void main() {
           message: tamperedMessage,
         ),
         throwsA(isA<IdentityVerificationException>()),
+      );
+    });
+
+    test('ratchet state persists across service re-instantiation', () async {
+      final first = await senderSessionService.initiateSessionAndEncryptFirstMessage(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-persist-1',
+        plaintext: 'first',
+      );
+      await receiverSessionService.decryptFirstMessageAndEstablishSession(
+        localWid: 'wid-b',
+        localDeviceId: 'device-b1',
+        message: first,
+      );
+
+      senderSessionService = SignalSessionService(
+        secureStorage: senderStorage,
+        libsignalBridge: bridge,
+        prekeyRemoteDataSource: prekeyDirectory,
+        identityProvisioningService: senderProvisioning,
+      );
+      receiverSessionService = SignalSessionService(
+        secureStorage: receiverStorage,
+        libsignalBridge: bridge,
+        prekeyRemoteDataSource: prekeyDirectory,
+        identityProvisioningService: receiverProvisioning,
+      );
+
+      final second = await senderSessionService.encryptWithExistingSession(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-persist-2',
+        plaintext: 'second',
+      );
+
+      final secondClear = await receiverSessionService.decryptIncomingMessage(
+        localWid: 'wid-b',
+        localDeviceId: 'device-b1',
+        peerWid: 'wid-a',
+        peerDeviceId: 'device-a1',
+        messageId: second.messageId,
+        ciphertextBase64: second.ciphertextBase64,
+        counter: second.counter,
+      );
+      expect(secondClear, equals('second'));
+    });
+
+    test('out-of-order messages decrypt via skipped key cache', () async {
+      final first = await senderSessionService.initiateSessionAndEncryptFirstMessage(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-order-0',
+        plaintext: 'zero',
+      );
+      await receiverSessionService.decryptFirstMessageAndEstablishSession(
+        localWid: 'wid-b',
+        localDeviceId: 'device-b1',
+        message: first,
+      );
+
+      final m1 = await senderSessionService.encryptWithExistingSession(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-order-1',
+        plaintext: 'one',
+      );
+      final m2 = await senderSessionService.encryptWithExistingSession(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-order-2',
+        plaintext: 'two',
+      );
+
+      final two = await receiverSessionService.decryptIncomingMessage(
+        localWid: 'wid-b',
+        localDeviceId: 'device-b1',
+        peerWid: 'wid-a',
+        peerDeviceId: 'device-a1',
+        messageId: m2.messageId,
+        ciphertextBase64: m2.ciphertextBase64,
+        counter: m2.counter,
+      );
+      final one = await receiverSessionService.decryptIncomingMessage(
+        localWid: 'wid-b',
+        localDeviceId: 'device-b1',
+        peerWid: 'wid-a',
+        peerDeviceId: 'device-a1',
+        messageId: m1.messageId,
+        ciphertextBase64: m1.ciphertextBase64,
+        counter: m1.counter,
+      );
+
+      expect(two, equals('two'));
+      expect(one, equals('one'));
+    });
+
+    test('cross-device isolation prevents decrypt on non-target device', () async {
+      final receiverB2Storage = InMemorySecureStorage();
+      final receiverB2Provisioning = SignalPrekeyProvisioningService(
+        secureStorage: receiverB2Storage,
+        libsignalBridge: bridge,
+        remoteDataSource: prekeyDirectory,
+      );
+      final receiverB2Snapshot = await receiverB2Provisioning.prepareAndUploadBundle(
+        wid: 'wid-b',
+        deviceId: 'device-b2',
+        oneTimePreKeyCount: 2,
+      );
+      await receiverB2Storage.write(
+        key: 'signal:trust:wid-a:device-a1:identity_key',
+        value: 'unknown-for-b2',
+      );
+      expect(receiverB2Snapshot.identityPublicKey, isNotEmpty);
+
+      final outgoing = await senderSessionService.initiateSessionAndEncryptFirstMessage(
+        localWid: 'wid-a',
+        localDeviceId: 'device-a1',
+        peerWid: 'wid-b',
+        peerDeviceId: 'device-b1',
+        messageId: 'msg-device-isolation',
+        plaintext: 'for-b1-only',
+      );
+
+      final receiverB2Service = SignalSessionService(
+        secureStorage: receiverB2Storage,
+        libsignalBridge: bridge,
+        prekeyRemoteDataSource: prekeyDirectory,
+        identityProvisioningService: receiverB2Provisioning,
+      );
+
+      await expectLater(
+        () => receiverB2Service.decryptFirstMessageAndEstablishSession(
+          localWid: 'wid-b',
+          localDeviceId: 'device-b2',
+          message: outgoing,
+        ),
+        throwsA(isA<SignalSessionException>()),
       );
     });
   });
