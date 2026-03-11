@@ -51,6 +51,11 @@ export class IdentityService {
     };
   }
 
+  async listDeviceIds(wid: string): Promise<string[]> {
+    const devices = this.devicesByWid.get(wid) ?? new Map<string, string>();
+    return Array.from(devices.keys());
+  }
+
   async block(actorWid: string, targetWid: string): Promise<void> {
     this.blockRegistry.addBlock(actorWid, targetWid);
     return;

@@ -1,0 +1,452 @@
+version: 1
+project: WHISP
+phase: F4
+name: Multi-Device Messaging Orchestration
+
+global_constraints:
+  - id: F4-HC-001
+    rule: "Hard Constraint - Non-Negotiable: server remains crypto-blind."
+  - id: F4-HC-002
+    rule: "Hard Constraint - Non-Negotiable: ordering is server-authoritative and monotonic per conversation."
+  - id: F4-HC-003
+    rule: "Hard Constraint - Non-Negotiable: delivery/read state is device-scoped, never wid-scoped."
+  - id: F4-HC-004
+    rule: "Hard Constraint - Non-Negotiable: retry semantics are idempotent and side-effect stable."
+  - id: F4-HC-005
+    rule: "Hard Constraint - Non-Negotiable: no groups, no MLS, no media, no presence, no typing indicators."
+
+evidence_required_global:
+  - ci_run_url
+  - test_report
+  - openapi_lint_output
+  - migration_report
+  - security_regression_output
+  - updated_release_docs
+  - updated_security_docs
+
+epics:
+  - id: F4-E1
+    name: Conversation and Ordering Core
+    owner: backend
+    status: completed
+    tasks:
+      - id: F4-T1
+        title: Implement deterministic 1to1 conversation identity by sorted participant pair
+        owner: backend
+        status: completed
+        estimate: 0.5d
+        dependencies: []
+        deliverables:
+          - code
+          - unit_tests
+          - openapi_update
+        definition_of_done:
+          - deterministic_conversation_id
+          - no_duplicate_pair_threads
+          - tests_pass
+          - openapi_validated
+        gate_checks:
+          - ordering_deterministic
+          - scope_lock_maintained
+        evidence_required:
+          - test_report
+          - openapi_lint_output
+      - id: F4-T2
+        title: Implement server-assigned monotonic conversation sequence allocation
+        owner: backend
+        status: completed
+        estimate: 1d
+        dependencies: [F4-T1]
+        deliverables:
+          - code
+          - schema_update
+          - integration_tests
+        definition_of_done:
+          - client_seq_rejected
+          - monotonic_seq_under_concurrency
+          - unique_conversation_seq_enforced
+          - tests_pass
+        gate_checks:
+          - ordering_deterministic
+        evidence_required:
+          - migration_report
+          - test_report
+      - id: F4-T3
+        title: Implement idempotent metadata insert on sender_device_id and client_message_id
+        owner: backend
+        status: completed
+        estimate: 0.5d
+        dependencies: [F4-T2]
+        deliverables:
+          - code
+          - integration_tests
+        definition_of_done:
+          - duplicate_retry_returns_same_seq
+          - cross_conversation_reuse_rejected
+          - tests_pass
+        gate_checks:
+          - idempotent_send_enforced
+        evidence_required:
+          - test_report
+
+  - id: F4-E2
+    name: Ciphertext Messaging Pipeline
+    owner: backend
+    status: completed
+    tasks:
+      - id: F4-T4
+        title: Implement ciphertext message send endpoint with canonical base64 validation
+        owner: backend
+        status: completed
+        estimate: 1d
+        dependencies: [F4-T2]
+        deliverables:
+          - code
+          - openapi_update
+          - integration_tests
+        definition_of_done:
+          - invalid_base64_rejected_400
+          - oversize_payload_rejected_413
+          - seq_from_client_rejected
+          - openapi_validated
+          - tests_pass
+        gate_checks:
+          - no_plaintext_server
+          - ciphertext_contract_enforced
+        evidence_required:
+          - openapi_lint_output
+          - test_report
+      - id: F4-T5
+        title: Enforce retry-safe ciphertext storage with deterministic idempotent replay
+        owner: backend
+        status: completed
+        estimate: 0.5d
+        dependencies: [F4-T4]
+        deliverables:
+          - code
+          - unit_tests
+          - e2e_tests
+        definition_of_done:
+          - same_retry_returns_same_seq
+          - conflicting_reuse_returns_409
+          - no_duplicate_message_mutation
+          - tests_pass
+        gate_checks:
+          - idempotent_send_enforced
+          - ciphertext_contract_enforced
+        evidence_required:
+          - test_report
+
+  - id: F4-E3
+    name: Device-Scoped Delivery State
+    owner: backend
+    status: completed
+    tasks:
+      - id: F4-T6
+        title: Add delivery_state table with delivered-before-read invariant
+        owner: backend
+        status: completed
+        estimate: 1d
+        dependencies: [F4-T5]
+        deliverables:
+          - migration
+          - schema_update
+          - code
+        definition_of_done:
+          - fk_to_messages_conversation_seq
+          - on_delete_cascade_enabled
+          - db_check_read_requires_delivered
+          - migration_apply_pass
+        gate_checks:
+          - device_scoped_delivery_state
+        evidence_required:
+          - migration_report
+      - id: F4-T7
+        title: Create delivery_state rows for recipient devices during message send
+        owner: backend
+        status: completed
+        estimate: 0.5d
+        dependencies: [F4-T6]
+        deliverables:
+          - code
+          - unit_tests
+          - e2e_tests
+        definition_of_done:
+          - recipient_devices_resolved_from_identity_service
+          - sender_device_not_inserted_as_target
+          - retry_does_not_duplicate_delivery_rows
+          - tests_pass
+        gate_checks:
+          - device_scoped_delivery_state
+          - no_duplicate_delivery_rows
+        evidence_required:
+          - test_report
+      - id: F4-T8
+        title: Implement delivered endpoint with idempotent per-device state mutation
+        owner: backend
+        status: completed
+        estimate: 0.5d
+        dependencies: [F4-T7]
+        deliverables:
+          - code
+          - openapi_update
+          - integration_tests
+        definition_of_done:
+          - mark_delivered_204
+          - unknown_row_404
+          - idempotent_repeat_supported
+          - openapi_validated
+          - tests_pass
+        gate_checks:
+          - device_scoped_delivery_state
+        evidence_required:
+          - openapi_lint_output
+          - test_report
+      - id: F4-T9
+        title: Implement read endpoint with fail-closed delivered prerequisite
+        owner: backend
+        status: completed
+        estimate: 0.5d
+        dependencies: [F4-T8]
+        deliverables:
+          - code
+          - openapi_update
+          - integration_tests
+        definition_of_done:
+          - read_before_delivered_rejected_409
+          - repeated_read_idempotent
+          - device_isolation_proven
+          - openapi_validated
+          - tests_pass
+        gate_checks:
+          - device_scoped_delivery_state
+          - delivered_before_read_enforced
+        evidence_required:
+          - openapi_lint_output
+          - test_report
+
+  - id: F4-E4
+    name: Fan-Out Orchestration Layer
+    owner: backend
+    status: next
+    tasks:
+      - id: F4-T10
+        title: Add fanout_queue table with FK to messages and per-device uniqueness
+        owner: backend
+        status: planned
+        estimate: 0.5d
+        dependencies: [F4-T6]
+        deliverables:
+          - migration
+          - schema_update
+        definition_of_done:
+          - unique_conversation_seq_target_device
+          - fk_messages_conversation_seq_on_delete_cascade
+          - delivered_flag_default_false
+          - migration_apply_pass
+        gate_checks:
+          - fanout_queue_integrity
+        evidence_required:
+          - migration_report
+      - id: F4-T11
+        title: Implement fanout.service enqueue path from delivery_state rows
+        owner: backend
+        status: planned
+        estimate: 1d
+        dependencies: [F4-T10, F4-T7]
+        deliverables:
+          - code
+          - unit_tests
+          - integration_tests
+        definition_of_done:
+          - one_queue_row_per_target_device
+          - retry_creates_no_duplicate_queue_rows
+          - no_mutation_of_delivery_state_truth
+          - tests_pass
+        gate_checks:
+          - fanout_queue_integrity
+          - idempotent_send_enforced
+        evidence_required:
+          - test_report
+      - id: F4-T12
+        title: Implement pending fetch endpoint by target_wid and target_device_id
+        owner: backend
+        status: planned
+        estimate: 0.5d
+        dependencies: [F4-T11]
+        deliverables:
+          - code
+          - openapi_update
+          - integration_tests
+        definition_of_done:
+          - returns_ciphertext_without_decrypt
+          - deterministic_ordering
+          - limit_100_enforced
+          - empty_queue_returns_empty_array
+          - openapi_validated
+          - tests_pass
+        gate_checks:
+          - pending_fetch_device_scoped
+          - no_plaintext_server
+        evidence_required:
+          - openapi_lint_output
+          - test_report
+      - id: F4-T13
+        title: Implement fanout queue delivery marker isolated from delivery_state
+        owner: backend
+        status: planned
+        estimate: 0.5d
+        dependencies: [F4-T11]
+        deliverables:
+          - code
+          - unit_tests
+        definition_of_done:
+          - mark_fanout_delivered_only_mutates_queue
+          - delivery_state_delivered_at_untouched
+          - tests_pass
+        gate_checks:
+          - queue_truth_separation
+        evidence_required:
+          - test_report
+
+  - id: F4-E5
+    name: Deterministic Resync and F4 Gate
+    owner: backend
+    status: pending
+    tasks:
+      - id: F4-T14
+        title: Implement deterministic since/sync recovery endpoint with exact range semantics
+        owner: backend
+        status: planned
+        estimate: 1d
+        dependencies: [F4-T12]
+        deliverables:
+          - code
+          - openapi_update
+          - integration_tests
+        definition_of_done:
+          - exact_from_seq_plus_one_to_latest
+          - no_duplicates_no_gaps
+          - openapi_validated
+          - tests_pass
+        gate_checks:
+          - resync_deterministic
+        evidence_required:
+          - openapi_lint_output
+          - test_report
+      - id: F4-T15
+        title: Produce formal F4 gate package with checklist, threat update, and release evidence
+        owner: techlead
+        status: planned
+        estimate: 0.5d
+        dependencies: [F4-T14]
+        deliverables:
+          - release_doc
+          - security_doc
+          - checklist
+        definition_of_done:
+          - f4_gate_check_written
+          - adversarial_checklist_written
+          - phase_status_go_or_no_go_recorded
+        gate_checks:
+          - release_evidence_complete
+        evidence_required:
+          - ci_run_url
+          - updated_release_docs
+          - updated_security_docs
+
+security_regression_tasks:
+  - id: F4-SR-1
+    title: Verify duplicate retry does not recreate delivery rows
+    owner: security
+    status: completed
+    estimate: 0.25d
+    dependencies: [F4-T7]
+    deliverables:
+      - integration_test
+    definition_of_done:
+      - delivery_row_count_constant_after_retry
+      - tests_pass
+    gate_checks:
+      - no_duplicate_delivery_rows
+    evidence_required:
+      - test_report
+  - id: F4-SR-2
+    title: Verify device-isolated delivered/read mutation
+    owner: security
+    status: completed
+    estimate: 0.25d
+    dependencies: [F4-T8, F4-T9]
+    deliverables:
+      - integration_test
+    definition_of_done:
+      - device_a_mutation_not_visible_on_device_b
+      - tests_pass
+    gate_checks:
+      - device_scoped_delivery_state
+    evidence_required:
+      - test_report
+  - id: F4-SR-3
+    title: Verify fanout queue retry deduplication
+    owner: security
+    status: planned
+    estimate: 0.25d
+    dependencies: [F4-T11]
+    deliverables:
+      - integration_test
+    definition_of_done:
+      - queue_row_count_constant_after_retry
+      - tests_pass
+    gate_checks:
+      - fanout_queue_integrity
+    evidence_required:
+      - test_report
+  - id: F4-SR-4
+    title: Verify pending queue isolation per device
+    owner: security
+    status: planned
+    estimate: 0.25d
+    dependencies: [F4-T12]
+    deliverables:
+      - integration_test
+    definition_of_done:
+      - no_cross_device_queue_visibility
+      - tests_pass
+    gate_checks:
+      - pending_fetch_device_scoped
+    evidence_required:
+      - test_report
+
+ci_gate_tasks:
+  - id: F4-CI-1
+    title: Keep relay/orchestrator coverage gate enforced at >=90 line and branch
+    owner: devops
+    status: completed
+    estimate: 0.25d
+    dependencies: []
+    deliverables:
+      - ci_config
+    definition_of_done:
+      - coverage_threshold_active
+      - current_relay_coverage_green
+    gate_checks:
+      - relay_coverage_hard_gate
+    evidence_required:
+      - ci_run_url
+      - test_report
+  - id: F4-CI-2
+    title: Add fanout queue integrity regression to CI
+    owner: devops
+    status: planned
+    estimate: 0.25d
+    dependencies: [F4-T11, F4-SR-3]
+    deliverables:
+      - ci_config
+      - security_regression_job
+    definition_of_done:
+      - queue_regression_runs_in_ci
+      - failure_blocks_pipeline
+    gate_checks:
+      - fanout_queue_integrity
+    evidence_required:
+      - ci_run_url

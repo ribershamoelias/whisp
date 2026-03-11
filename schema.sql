@@ -25,6 +25,22 @@ CREATE TABLE spaces (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE conversations (
+  conversation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type TEXT NOT NULL CHECK (type = '1to1'),
+  participant_a_wid UUID NOT NULL REFERENCES users(wid) ON DELETE CASCADE,
+  participant_b_wid UUID NOT NULL REFERENCES users(wid) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (participant_a_wid <> participant_b_wid),
+  UNIQUE (type, participant_a_wid, participant_b_wid)
+);
+
+CREATE TABLE conversation_seq (
+  conversation_id UUID PRIMARY KEY REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+  next_seq BIGINT NOT NULL DEFAULT 1 CHECK (next_seq >= 1),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE memberships (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   wid UUID NOT NULL REFERENCES users(wid) ON DELETE CASCADE,
@@ -38,12 +54,38 @@ CREATE TABLE messages (
   message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   space_id UUID NOT NULL REFERENCES spaces(space_id) ON DELETE CASCADE,
   sender_wid UUID NOT NULL REFERENCES users(wid),
+  sender_device_id TEXT,
+  conversation_id UUID REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+  seq BIGINT CHECK (seq >= 1),
   ciphertext_blob TEXT NOT NULL,
   client_message_id TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (conversation_id, seq),
+  UNIQUE (sender_device_id, client_message_id)
 );
 
 CREATE INDEX idx_messages_space_created_at ON messages(space_id, created_at DESC);
+
+CREATE TABLE delivery_state (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL,
+  seq BIGINT NOT NULL CHECK (seq >= 1),
+  target_wid UUID NOT NULL REFERENCES users(wid) ON DELETE CASCADE,
+  target_device_id TEXT NOT NULL,
+  delivered_at TIMESTAMPTZ,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (read_at IS NULL OR delivered_at IS NOT NULL),
+  UNIQUE (conversation_id, seq, target_device_id),
+  FOREIGN KEY (conversation_id, seq)
+    REFERENCES messages(conversation_id, seq)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX idx_delivery_state_target_device_delivered
+  ON delivery_state(target_wid, target_device_id, delivered_at);
+CREATE INDEX idx_delivery_state_target_device_read
+  ON delivery_state(target_wid, target_device_id, read_at);
 
 CREATE TABLE echo_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

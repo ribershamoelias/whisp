@@ -440,6 +440,105 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RelayMessageOut'
+  /relay/conversations:
+    post:
+      tags: [relay]
+      summary: Create or fetch deterministic 1to1 conversation metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationCreateIn'
+      responses:
+        '201':
+          description: Conversation created or reused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationOut'
+        '400':
+          description: Invalid participant input
+  /relay/messages/metadata:
+    post:
+      tags: [relay]
+      summary: Store message metadata with server-assigned monotonic seq
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageMetadataIn'
+      responses:
+        '201':
+          description: Metadata stored or idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageMetadataOut'
+        '400':
+          description: Invalid payload or seq provided by client
+        '409':
+          description: Duplicate client_message_id reused with conflicting payload
+  /relay/messages/send:
+    post:
+      tags: [relay]
+      summary: Store ciphertext message with server-assigned monotonic seq
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CiphertextMessageSendIn'
+      responses:
+        '201':
+          description: Ciphertext metadata stored or idempotent retry resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CiphertextMessageSendOut'
+        '400':
+          description: Invalid payload or seq provided by client
+        '409':
+          description: Duplicate client_message_id reused with conflicting payload
+        '413':
+          description: Ciphertext exceeds 65536 bytes
+  /relay/messages/delivered:
+    post:
+      tags: [relay]
+      summary: Mark a ciphertext message as delivered for a specific target device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryStateUpdateIn'
+      responses:
+        '204':
+          description: Delivery marked or already marked
+        '400':
+          description: Invalid payload
+        '404':
+          description: Delivery row not found
+  /relay/messages/read:
+    post:
+      tags: [relay]
+      summary: Mark a ciphertext message as read for a specific target device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryStateUpdateIn'
+      responses:
+        '204':
+          description: Read marked or already marked
+        '400':
+          description: Invalid payload
+        '404':
+          description: Delivery row not found
+        '409':
+          description: Message must be delivered before read
   /relay/echo:
     post:
       tags: [relay]
@@ -574,6 +673,117 @@ components:
         created_at:
           type: string
           format: date-time
+    ConversationCreateIn:
+      type: object
+      required: [initiator_wid, target_wid]
+      properties:
+        initiator_wid:
+          type: string
+        target_wid:
+          type: string
+    ConversationOut:
+      type: object
+      required: [conversation_id, type, participants, created_at]
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [1to1]
+        participants:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+    MessageMetadataIn:
+      type: object
+      required: [conversation_id, sender_wid, sender_device_id, client_message_id]
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+        sender_wid:
+          type: string
+        sender_device_id:
+          type: string
+        client_message_id:
+          type: string
+    MessageMetadataOut:
+      type: object
+      required:
+        [conversation_id, seq, sender_wid, sender_device_id, client_message_id, created_at, idempotent_replay]
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+        seq:
+          type: integer
+          minimum: 1
+        sender_wid:
+          type: string
+        sender_device_id:
+          type: string
+        client_message_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        idempotent_replay:
+          type: boolean
+    CiphertextMessageSendIn:
+      type: object
+      required: [conversation_id, sender_wid, sender_device_id, client_message_id, ciphertext]
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+        sender_wid:
+          type: string
+        sender_device_id:
+          type: string
+        client_message_id:
+          type: string
+        ciphertext:
+          type: string
+          description: Base64-encoded opaque ciphertext blob
+    CiphertextMessageSendOut:
+      type: object
+      required: [conversation_id, seq, sender_wid, sender_device_id, client_message_id, created_at]
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+        seq:
+          type: integer
+          minimum: 1
+        sender_wid:
+          type: string
+        sender_device_id:
+          type: string
+        client_message_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    DeliveryStateUpdateIn:
+      type: object
+      required: [conversation_id, seq, target_wid, target_device_id]
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+        seq:
+          type: integer
+          minimum: 1
+        target_wid:
+          type: string
+        target_device_id:
+          type: string
     RelayEchoIn:
       type: object
       required: [wid, device_id, message_id, ciphertext]

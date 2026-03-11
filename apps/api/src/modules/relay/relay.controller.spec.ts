@@ -1,9 +1,22 @@
 import { RelayController } from './relay.controller';
-import { RelayEchoInput, RelayEchoOutput, RelayMessageInput, RelayService } from './relay.service';
+import {
+  CiphertextMessageSendOutput,
+  ConversationCreateInput,
+  MessageMetadataOutput,
+  RelayEchoInput,
+  RelayEchoOutput,
+  RelayMessageInput,
+  RelayService
+} from './relay.service';
 
 describe('RelayController', () => {
   const relayServiceMock: jest.Mocked<RelayService> = {
     enqueue: jest.fn(),
+    createConversation: jest.fn(),
+    storeMessageMetadata: jest.fn(),
+    sendCiphertextMessage: jest.fn(),
+    markDelivered: jest.fn(),
+    markRead: jest.fn(),
     listBySpace: jest.fn(),
     submitEcho: jest.fn(),
     getEcho: jest.fn(),
@@ -26,6 +39,99 @@ describe('RelayController', () => {
 
     await expect(controller.send(body)).resolves.toEqual({ message_id: 'msg-1' });
     expect(relayServiceMock.enqueue).toHaveBeenCalledWith(body);
+  });
+
+  it('delegates conversation creation to relay service', async () => {
+    const body: ConversationCreateInput = {
+      initiator_wid: 'wid-1',
+      target_wid: 'wid-2'
+    };
+    relayServiceMock.createConversation.mockResolvedValue({
+      conversation_id: 'conv-1',
+      type: '1to1',
+      participants: ['wid-1', 'wid-2'],
+      created_at: '2026-01-01T00:00:00.000Z'
+    });
+
+    await expect(controller.createConversation(body)).resolves.toEqual({
+      conversation_id: 'conv-1',
+      type: '1to1',
+      participants: ['wid-1', 'wid-2'],
+      created_at: '2026-01-01T00:00:00.000Z'
+    });
+    expect(relayServiceMock.createConversation).toHaveBeenCalledWith(body);
+  });
+
+  it('delegates metadata store to relay service', async () => {
+    const body = {
+      conversation_id: 'conv-1',
+      sender_wid: 'wid-1',
+      sender_device_id: 'device-1',
+      client_message_id: 'cmid-1'
+    };
+    const output: MessageMetadataOutput = {
+      conversation_id: 'conv-1',
+      seq: 1,
+      sender_wid: 'wid-1',
+      sender_device_id: 'device-1',
+      client_message_id: 'cmid-1',
+      created_at: '2026-01-01T00:00:00.000Z',
+      idempotent_replay: false
+    };
+    relayServiceMock.storeMessageMetadata.mockResolvedValue(output);
+
+    await expect(controller.storeMessageMetadata(body)).resolves.toEqual(output);
+    expect(relayServiceMock.storeMessageMetadata).toHaveBeenCalledWith(body);
+  });
+
+  it('delegates ciphertext send to relay service', async () => {
+    const body = {
+      conversation_id: 'conv-1',
+      sender_wid: 'wid-1',
+      sender_device_id: 'device-1',
+      client_message_id: 'cmid-send-1',
+      ciphertext: 'Y2lwaGVydGV4dA=='
+    };
+    const output: CiphertextMessageSendOutput = {
+      conversation_id: 'conv-1',
+      seq: 1,
+      sender_wid: 'wid-1',
+      sender_device_id: 'device-1',
+      client_message_id: 'cmid-send-1',
+      created_at: '2026-01-01T00:00:00.000Z'
+    };
+    relayServiceMock.sendCiphertextMessage.mockResolvedValue(output);
+
+    await expect(controller.sendCiphertextMessage(body)).resolves.toEqual(output);
+    expect(relayServiceMock.sendCiphertextMessage).toHaveBeenCalledWith(body);
+  });
+
+  it('delegates delivered update to relay service', async () => {
+    const body = {
+      conversation_id: 'conv-1',
+      seq: 1,
+      target_wid: 'wid-2',
+      target_device_id: 'device-2'
+    };
+
+    relayServiceMock.markDelivered.mockResolvedValue();
+
+    await expect(controller.markDelivered(body)).resolves.toBeUndefined();
+    expect(relayServiceMock.markDelivered).toHaveBeenCalledWith(body);
+  });
+
+  it('delegates read update to relay service', async () => {
+    const body = {
+      conversation_id: 'conv-1',
+      seq: 1,
+      target_wid: 'wid-2',
+      target_device_id: 'device-2'
+    };
+
+    relayServiceMock.markRead.mockResolvedValue();
+
+    await expect(controller.markRead(body)).resolves.toBeUndefined();
+    expect(relayServiceMock.markRead).toHaveBeenCalledWith(body);
   });
 
   it('delegates list by space to relay service', async () => {
